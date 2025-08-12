@@ -58,7 +58,7 @@
                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-products"><i class="bi bi-box-seam me-2"></i>Produtos</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-news"><i class="bi bi-newspaper me-2"></i>Notícias</button>
-                        <button class="nav-link" data-bs-toggle-pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-clients"><i class="bi bi-people me-2"></i>Clientes</button>
                     </div>
                 </div>
@@ -87,24 +87,20 @@
         const logoutBtn = document.getElementById('admin-logout-btn');
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
-        let allClients = []; // Armazenar todos os clientes para a pesquisa
+        let allClients = []; 
 
-        // Função para verificar se o usuário logado é um admin
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 showLogin();
                 return;
             }
-
             const { data: user, error } = await supabase.from('usuarios').select('is_admin').eq('id', session.user.id).single();
-
             if (error || !user || !user.is_admin) {
                 await supabase.auth.signOut();
                 showLogin();
             } else {
                 showDashboard(session.user.email);
-                // Carrega o dashboard primeiro
                 loadTabContent('v-pills-dashboard');
             }
         }
@@ -112,6 +108,13 @@
         function showLogin() {
             loginSection.classList.remove('d-none');
             dashboardSection.classList.add('d-none');
+            
+            // NOVO: Reseta o botão de login para o estado inicial
+            const loginButton = loginForm.querySelector('button[type="submit"]');
+            if (loginButton) {
+                loginButton.disabled = false;
+                loginButton.innerHTML = 'Entrar';
+            }
         }
 
         function showDashboard(email) {
@@ -126,12 +129,9 @@
             const btn = e.submitter;
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Entrando...`;
-
             const email = document.getElementById('admin-email').value;
             const password = document.getElementById('admin-password').value;
-
             const { error } = await supabase.auth.signInWithPassword({ email, password });
-
             if (error) {
                 loginError.textContent = "Email ou senha inválidos.";
                 loginError.classList.remove('d-none');
@@ -156,14 +156,12 @@
 
         async function loadTabContent(tabId) {
             const contentArea = document.getElementById(tabId);
-            const spinner = `<div class="d-flex justify-content-center"><div class="spinner-border" role="status"></div></div>`;
-            contentArea.innerHTML = spinner;
-
+            contentArea.innerHTML = `<div class="d-flex justify-content-center"><div class="spinner-border" role="status"></div></div>`;
             try {
                 let data, error;
                 switch (tabId) {
                     case 'v-pills-dashboard':
-                        renderDashboard(contentArea);
+                        await renderDashboard(contentArea);
                         break;
                     case 'v-pills-products':
                         ({ data, error } = await supabase.from('produtos').select('*').order('id'));
@@ -171,22 +169,20 @@
                         renderProducts(contentArea, data);
                         break;
                     case 'v-pills-news':
-                        // CORREÇÃO: Usando a coluna 'data' para ordenar
                         ({ data, error } = await supabase.from('noticias').select('*').order('data', { ascending: false }));
                         if (error) throw error;
                         renderNews(contentArea, data);
                         break;
                     case 'v-pills-interactions':
-                        // CORREÇÃO: Usando a coluna 'criado_em' para ordenar
                         ({ data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false }));
                         if (error) throw error;
                         renderInteractions(contentArea, data);
                         break;
                     case 'v-pills-clients':
-                        ({ data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at'));
+                        ({ data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin, created_at').order('created_at'));
                         if (error) throw error;
-                        allClients = data; // Armazena para pesquisa
-                        renderClients(contentArea, data);
+                        allClients = data;
+                        renderClients(contentArea, allClients);
                         break;
                 }
             } catch (err) {
@@ -194,54 +190,28 @@
             }
         }
         
-        // --- NOVAS FUNÇÕES E MELHORIAS ---
-
         async function renderDashboard(container) {
             const { count: clientCount } = await supabase.from('usuarios').select('*', { count: 'exact', head: true });
             const { count: productCount } = await supabase.from('produtos').select('*', { count: 'exact', head: true });
             const { count: interactionCount } = await supabase.from('interacoes').select('*', { count: 'exact', head: true });
-            
             container.innerHTML = `
                 <h2>Dashboard</h2>
                 <div class="row g-4 mt-2">
-                    <div class="col-md-4">
-                        <div class="stat-card text-center">
-                            <i class="bi bi-people-fill fs-1"></i>
-                            <h3 class="mt-2">${clientCount ?? 0}</h3>
-                            <p class="text-muted mb-0">Clientes Cadastrados</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stat-card text-center">
-                            <i class="bi bi-box-seam-fill fs-1"></i>
-                            <h3 class="mt-2">${productCount ?? 0}</h3>
-                            <p class="text-muted mb-0">Produtos na Loja</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stat-card text-center">
-                            <i class="bi bi-headset fs-1"></i>
-                            <h3 class="mt-2">${interactionCount ?? 0}</h3>
-                            <p class="text-muted mb-0">Interações Recebidas</p>
-                        </div>
-                    </div>
-                </div>
-            `;
+                    <div class="col-md-4"><div class="stat-card text-center"><i class="bi bi-people-fill fs-1"></i><h3 class="mt-2">${clientCount ?? 0}</h3><p class="text-muted mb-0">Clientes Cadastrados</p></div></div>
+                    <div class="col-md-4"><div class="stat-card text-center"><i class="bi bi-box-seam-fill fs-1"></i><h3 class="mt-2">${productCount ?? 0}</h3><p class="text-muted mb-0">Produtos na Loja</p></div></div>
+                    <div class="col-md-4"><div class="stat-card text-center"><i class="bi bi-headset fs-1"></i><h3 class="mt-2">${interactionCount ?? 0}</h3><p class="text-muted mb-0">Interações Recebidas</p></div></div>
+                </div>`;
         }
 
         function renderProducts(container, products) {
             let tableHtml = `<h2>Produtos Cadastrados</h2><p class="text-muted">Funcionalidades de Adicionar/Editar serão implementadas no próximo passo.</p><div class="table-responsive"><table class="table table-dark table-striped table-hover"><thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th></tr></thead><tbody>`;
-            products.forEach(p => {
-                tableHtml += `<tr><td>${p.id}</td><td>${p.name}</td><td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>${p.quantity}</td></tr>`;
-            });
+            products.forEach(p => { tableHtml += `<tr><td>${p.id}</td><td>${p.name}</td><td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>${p.quantity}</td></tr>`; });
             container.innerHTML = tableHtml + `</tbody></table></div>`;
         }
 
         function renderNews(container, news) {
              let listHtml = '<h2>Notícias Publicadas</h2><p class="text-muted">Funcionalidades de Adicionar/Editar serão implementadas no próximo passo.</p><div class="list-group">';
-            news.forEach(n => {
-                listHtml += `<div class="list-group-item list-group-item-dark"><h5>${n.titulo}</h5><p class="mb-1">${n.subtitulo || ''}</p><small class="text-muted">Por ${n.autor || 'N/A'} em ${new Date(n.data).toLocaleDateString()}</small></div>`;
-            });
+            news.forEach(n => { listHtml += `<div class="list-group-item list-group-item-dark"><h5>${n.titulo}</h5><p class="mb-1">${n.subtitulo || ''}</p><small class="text-muted">Por ${n.autor || 'N/A'} em ${new Date(n.data).toLocaleDateString()}</small></div>`; });
             container.innerHTML = listHtml + '</div>';
         }
 
@@ -255,28 +225,20 @@
         }
 
         function renderClients(container, clients) {
-            let tableHtml = `
+            let tableBodyHtml = '';
+            clients.forEach(c => { tableBodyHtml += createClientRow(c); });
+            container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>Clientes Cadastrados</h2>
                     <input type="text" id="client-search" class="form-control w-50" placeholder="Pesquisar por nome ou email...">
                 </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-striped table-hover">
-                        <thead>
-                            <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr>
-                        </thead>
-                        <tbody id="clients-table-body">`;
-            
-            clients.forEach(c => {
-                tableHtml += createClientRow(c);
-            });
-
-            container.innerHTML = tableHtml + `</tbody></table></div>`;
-            
-            // Adiciona os event listeners após renderizar
-            document.getElementById('client-search').addEventListener('input', handleClientSearch);
-            container.querySelectorAll('.delete-client-btn').forEach(btn => btn.addEventListener('click', handleDeleteClient));
-            container.querySelectorAll('.toggle-admin-btn').forEach(btn => btn.addEventListener('click', handleToggleAdmin));
+                        <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr></thead>
+                        <tbody id="clients-table-body">${tableBodyHtml}</tbody>
+                    </table>
+                </div>`;
+            attachClientEventListeners();
         }
 
         function createClientRow(client) {
@@ -284,7 +246,7 @@
             const adminButtonText = client.is_admin ? 'Sim' : 'Não';
             return `
                 <tr data-user-id="${client.id}">
-                    <td>${client.nome_completo}</td>
+                    <td>${client.nome_completo || 'N/A'}</td>
                     <td>${client.email}</td>
                     <td>${client.telefone || 'N/A'}</td>
                     <td><button class="btn btn-sm toggle-admin-btn ${adminButtonClass}" data-user-id="${client.id}" data-is-admin="${client.is_admin}">${adminButtonText}</button></td>
@@ -292,33 +254,32 @@
                 </tr>`;
         }
 
+        function attachClientEventListeners() {
+            document.getElementById('client-search')?.addEventListener('input', handleClientSearch);
+            document.querySelectorAll('.delete-client-btn').forEach(btn => btn.addEventListener('click', handleDeleteClient));
+            document.querySelectorAll('.toggle-admin-btn').forEach(btn => btn.addEventListener('click', handleToggleAdmin));
+        }
+
         function handleClientSearch(event) {
             const searchTerm = event.target.value.toLowerCase();
             const filteredClients = allClients.filter(client => 
-                client.nome_completo.toLowerCase().includes(searchTerm) || 
-                client.email.toLowerCase().includes(searchTerm)
+                (client.nome_completo || '').toLowerCase().includes(searchTerm) || 
+                (client.email || '').toLowerCase().includes(searchTerm)
             );
             const tableBody = document.getElementById('clients-table-body');
             tableBody.innerHTML = '';
-            filteredClients.forEach(c => {
-                tableBody.innerHTML += createClientRow(c);
-            });
-             // Re-adiciona os event listeners aos novos botões
-            tableBody.querySelectorAll('.delete-client-btn').forEach(btn => btn.addEventListener('click', handleDeleteClient));
-            tableBody.querySelectorAll('.toggle-admin-btn').forEach(btn => btn.addEventListener('click', handleToggleAdmin));
+            filteredClients.forEach(c => { tableBody.innerHTML += createClientRow(c); });
+            attachClientEventListeners(); // Re-adiciona os eventos aos novos botões
         }
 
         async function handleDeleteClient(event) {
             const userId = event.currentTarget.dataset.userId;
-            if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
-                // A exclusão de usuários na tabela auth requer privilégios de "service_role"
-                // e é mais seguro fazer via uma Edge Function. Por enquanto, vamos remover da tabela 'usuarios'.
+            if (confirm('Tem certeza que deseja EXCLUIR este perfil de usuário? A conta de login continuará existindo, mas o perfil será removido.')) {
                 const { error } = await supabase.from('usuarios').delete().eq('id', userId);
-                if (error) {
-                    alert('Erro ao excluir usuário: ' + error.message);
-                } else {
-                    alert('Usuário removido da lista de perfis.');
-                    loadTabContent('v-pills-clients'); // Recarrega a lista
+                if (error) { alert('Erro ao excluir perfil: ' + error.message); } 
+                else {
+                    alert('Perfil de usuário removido.');
+                    loadTabContent('v-pills-clients');
                 }
             }
         }
@@ -327,19 +288,16 @@
             const btn = event.currentTarget;
             const userId = btn.dataset.userId;
             const currentlyAdmin = btn.dataset.isAdmin === 'true';
-            
             if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
                  const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
-                 if (error) {
-                    alert('Erro ao alterar status de admin: ' + error.message);
-                 } else {
+                 if (error) { alert('Erro ao alterar status de admin: ' + error.message); } 
+                 else {
                     alert('Status de admin alterado com sucesso!');
-                    loadTabContent('v-pills-clients'); // Recarrega a lista
+                    loadTabContent('v-pills-clients');
                  }
             }
         }
-
-        // Verificação inicial ao carregar a página
+        
         checkAdminStatus();
 
     </script>
