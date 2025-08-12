@@ -91,10 +91,7 @@
 
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                showLogin();
-                return;
-            }
+            if (!session) { showLogin(); return; }
             const { data: user, error } = await supabase.from('usuarios').select('is_admin').eq('id', session.user.id).single();
             if (error || !user || !user.is_admin) {
                 await supabase.auth.signOut();
@@ -108,8 +105,6 @@
         function showLogin() {
             loginSection.classList.remove('d-none');
             dashboardSection.classList.add('d-none');
-            
-            // NOVO: Reseta o botão de login para o estado inicial
             const loginButton = loginForm.querySelector('button[type="submit"]');
             if (loginButton) {
                 loginButton.disabled = false;
@@ -215,11 +210,27 @@
             container.innerHTML = listHtml + '</div>';
         }
 
+        // --- FUNÇÃO ATUALIZADA ---
         function renderInteractions(container, interactions) {
             let listHtml = '<h2>Orçamentos e Contatos</h2><p class="text-muted">Funcionalidade de mudança de status será implementada no próximo passo.</p><div class="list-group">';
             interactions.forEach(i => {
                 const badgeColor = i.tipo_interacao === 'orcamento' ? 'bg-info text-dark' : 'bg-warning text-dark';
-                listHtml += `<div class="list-group-item list-group-item-dark"><div class="d-flex w-100 justify-content-between"><h5 class="mb-1">${i.nome} <small>(${i.email})</small></h5><span class="badge ${badgeColor}">${i.tipo_interacao}</span></div><p class="mb-1">${i.mensagem}</p><small class="text-muted">Recebido em: ${new Date(i.criado_em).toLocaleString('pt-BR')}</small></div>`;
+                
+                // NOVO: Cria o texto detalhado para o tipo de interação
+                let typeText = i.tipo_interacao;
+                if (i.tipo_interacao === 'orcamento' && i.servico_nome) {
+                    typeText += `: <strong class="fw-bold">${i.servico_nome}</strong>`;
+                }
+
+                listHtml += `
+                    <div class="list-group-item list-group-item-dark">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">${i.nome} <small>(${i.email})</small></h5>
+                            <span class="badge ${badgeColor}">${typeText}</span>
+                        </div>
+                        <p class="mb-1">${i.mensagem}</p>
+                        <small class="text-muted">Recebido em: ${new Date(i.criado_em).toLocaleString('pt-BR')}</small>
+                    </div>`;
             });
             container.innerHTML = listHtml + '</div>';
         }
@@ -269,7 +280,7 @@
             const tableBody = document.getElementById('clients-table-body');
             tableBody.innerHTML = '';
             filteredClients.forEach(c => { tableBody.innerHTML += createClientRow(c); });
-            attachClientEventListeners(); // Re-adiciona os eventos aos novos botões
+            attachClientEventListeners();
         }
 
         async function handleDeleteClient(event) {
