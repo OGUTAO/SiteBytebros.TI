@@ -125,12 +125,12 @@
                 if (file) {
                     // Upload da nova imagem
                     const filePath = `public/${Date.now()}-${file.name}`;
-                    const { error: uploadError } = await supabase.storage.from('imagens_produtos').upload(filePath, file);
+                    const { error: uploadError } = await supabase.storage.from('imagensprodutos').upload(filePath, file);
 
                     if (uploadError) throw uploadError;
 
                     // Pega a URL pública da imagem
-                    const { data: urlData } = supabase.storage.from('imagens_produtos').getPublicUrl(filePath);
+                    const { data: urlData } = supabase.storage.from('imagensprodutos').getPublicUrl(filePath);
                     imageUrl = urlData.publicUrl;
                 }
                 
