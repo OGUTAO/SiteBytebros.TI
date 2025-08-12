@@ -10,17 +10,15 @@
     <style>
         body { background-color: #212529; }
         #admin-login-section { min-height: 100vh; }
-        #admin-dashboard { display: none; }
         .nav-pills .nav-link { cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <!-- Seção de Login do Admin -->
     <div id="admin-login-section" class="d-flex align-items-center justify-content-center">
         <div class="form-container bg-dark text-light p-4 rounded-3 shadow" style="max-width: 400px;">
-             <div class="text-center mb-4">
-                <img src="img/bytebros.png" alt="Logo Byte Bros" width="100" class="mb-3"> 
+            <div class="text-center mb-4">
+                <img src="img/bytebros.png" alt="Logo Byte Bros" width="100" class="mb-3">
                 <h2>Acesso Restrito</h2>
                 <p class="text-muted">Painel de Administração</p>
             </div>
@@ -41,8 +39,7 @@
         </div>
     </div>
 
-    <!-- Dashboard do Admin (Oculto por padrão) -->
-    <div id="admin-dashboard">
+    <div id="admin-dashboard" class="d-none">
         <nav class="navbar navbar-dark bg-dark fixed-top shadow-sm">
             <div class="container-fluid">
                 <a class="navbar-brand" href="#">Painel Byte Bros.TI</a>
@@ -55,7 +52,6 @@
 
         <div class="container-fluid" style="margin-top: 70px;">
             <div class="row">
-                <!-- Navegação em Abas -->
                 <div class="col-lg-2">
                     <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
@@ -66,7 +62,6 @@
                     </div>
                 </div>
 
-                <!-- Conteúdo das Abas -->
                 <div class="col-lg-10">
                     <div class="tab-content card bg-dark text-light border-secondary p-4" id="v-pills-tabContent">
                         <div class="tab-pane fade show active" id="v-pills-dashboard">
@@ -85,7 +80,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- SCRIPT MODIFICADO PARA USAR SUPABASE -->
     <script type="module">
         import { supabase } from './js/supabase-client.js';
 
@@ -104,7 +98,6 @@
                 return;
             }
 
-            // Busca o perfil do usuário para verificar a flag 'is_admin'
             const { data: user, error } = await supabase
                 .from('usuarios')
                 .select('is_admin')
@@ -112,7 +105,7 @@
                 .single();
 
             if (error || !user || !user.is_admin) {
-                alert('Acesso negado. Esta área é restrita para administradores.');
+                // Não mostra o alerta, apenas desloga silenciosamente
                 await supabase.auth.signOut();
                 showLogin();
             } else {
@@ -121,13 +114,13 @@
         }
 
         function showLogin() {
-            loginSection.style.display = 'flex';
-            dashboardSection.style.display = 'none';
+            loginSection.classList.remove('d-none');
+            dashboardSection.classList.add('d-none');
         }
 
         function showDashboard(email) {
-            loginSection.style.display = 'none';
-            dashboardSection.style.display = 'block';
+            loginSection.classList.add('d-none');
+            dashboardSection.classList.remove('d-none');
             adminEmailDisplay.textContent = email;
         }
 
@@ -145,12 +138,12 @@
             const { error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (error) {
-                loginError.textContent = error.message;
+                loginError.textContent = "Email ou senha inválidos."; // Mensagem mais amigável
                 loginError.classList.remove('d-none');
                 btn.disabled = false;
                 btn.innerHTML = 'Entrar';
             } else {
-                // Após o login, verifica se é admin
+                // Após o login, verifica se é admin. A função checkAdminStatus cuida de mostrar a tela certa.
                 await checkAdminStatus();
             }
         });
@@ -158,7 +151,8 @@
         // Evento de logout
         logoutBtn.addEventListener('click', async () => {
             await supabase.auth.signOut();
-            showLogin();
+            // A função showLogin() vai esconder o painel e mostrar o form de login
+            showLogin(); 
         });
 
         // Carrega o conteúdo da aba quando ela é mostrada
@@ -169,42 +163,77 @@
             });
         });
 
+        // Função para carregar o conteúdo das abas
         async function loadTabContent(tabId) {
             const contentArea = document.getElementById(tabId);
-            contentArea.innerHTML = `<div class="d-flex justify-content-center"><div class="spinner-border" role="status"></div></div>`;
+            const spinner = `<div class="d-flex justify-content-center"><div class="spinner-border" role="status"></div></div>`;
+            contentArea.innerHTML = spinner;
 
             try {
-                if (tabId === 'v-pills-products') {
-                    const { data, error } = await supabase.from('produtos').select('*');
-                    if (error) throw error;
-                    renderProducts(contentArea, data);
+                let data, error;
+                switch (tabId) {
+                    case 'v-pills-products':
+                        ({ data, error } = await supabase.from('produtos').select('*').order('id'));
+                        if (error) throw error;
+                        renderProducts(contentArea, data);
+                        break;
+                    case 'v-pills-news':
+                         ({ data, error } = await supabase.from('noticias').select('*').order('created_at', { ascending: false }));
+                        if (error) throw error;
+                        renderNews(contentArea, data);
+                        break;
+                    case 'v-pills-interactions':
+                         ({ data, error } = await supabase.from('interacoes').select('*').order('created_at', { ascending: false }));
+                        if (error) throw error;
+                        renderInteractions(contentArea, data);
+                        break;
+                    case 'v-pills-clients':
+                         ({ data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at'));
+                        if (error) throw error;
+                        renderClients(contentArea, data);
+                        break;
+                    case 'v-pills-dashboard':
+                        // O conteúdo do dashboard é estático, não precisa de spinner
+                        contentArea.innerHTML = `<h2>Bem-vindo ao Painel de Controle</h2><p>Utilize o menu ao lado para gerenciar o conteúdo do site.</p>`;
+                        break;
                 }
-                // Adicionar lógica para outras abas aqui
-            } catch (error) {
-                contentArea.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+            } catch (err) {
+                contentArea.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
             }
         }
 
+        // Funções de Renderização
         function renderProducts(container, products) {
-            let tableHtml = `<h2>Produtos Cadastrados</h2>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-hover">
-                        <thead>
-                            <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th></tr>
-                        </thead>
-                        <tbody>`;
-            
+            let tableHtml = `<h2>Produtos Cadastrados</h2><div class="table-responsive"><table class="table table-dark table-striped table-hover"><thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th></tr></thead><tbody>`;
             products.forEach(p => {
-                tableHtml += `<tr>
-                    <td>${p.id}</td>
-                    <td>${p.name}</td>
-                    <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                    <td>${p.quantity}</td>
-                </tr>`;
+                tableHtml += `<tr><td>${p.id}</td><td>${p.name}</td><td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>${p.quantity}</td></tr>`;
             });
+            container.innerHTML = tableHtml + `</tbody></table></div>`;
+        }
 
-            tableHtml += `</tbody></table></div>`;
-            container.innerHTML = tableHtml;
+        function renderNews(container, news) {
+             let listHtml = '<h2>Notícias Publicadas</h2><div class="list-group">';
+            news.forEach(n => {
+                listHtml += `<div class="list-group-item list-group-item-dark"><h5>${n.titulo}</h5><p class="mb-1">${n.subtitulo || ''}</p><small class="text-muted">Por ${n.autor || 'N/A'} em ${new Date(n.data).toLocaleDateString()}</small></div>`;
+            });
+            container.innerHTML = listHtml + '</div>';
+        }
+
+        function renderInteractions(container, interactions) {
+            let listHtml = '<h2>Orçamentos e Contatos</h2><div class="list-group">';
+            interactions.forEach(i => {
+                const badgeColor = i.tipo_interacao === 'orcamento' ? 'bg-info text-dark' : 'bg-warning text-dark';
+                listHtml += `<div class="list-group-item list-group-item-dark"><div class="d-flex w-100 justify-content-between"><h5 class="mb-1">${i.nome} <small>(${i.email})</small></h5><span class="badge ${badgeColor}">${i.tipo_interacao}</span></div><p class="mb-1">${i.mensagem}</p><small class="text-muted">Recebido em: ${new Date(i.created_at).toLocaleString('pt-BR')}</small></div>`;
+            });
+            container.innerHTML = listHtml + '</div>';
+        }
+
+        function renderClients(container, clients) {
+            let tableHtml = `<h2>Clientes Cadastrados</h2><div class="table-responsive"><table class="table table-dark table-striped table-hover"><thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th></tr></thead><tbody>`;
+            clients.forEach(c => {
+                 tableHtml += `<tr><td>${c.nome_completo}</td><td>${c.email}</td><td>${c.telefone || 'N/A'}</td><td>${c.is_admin ? 'Sim' : 'Não'}</td></tr>`;
+            });
+            container.innerHTML = tableHtml + `</tbody></table></div>`;
         }
 
         // Verificação inicial ao carregar a página
