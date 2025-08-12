@@ -177,7 +177,7 @@
                         ({ data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin, created_at').order('created_at'));
                         if (error) throw error;
                         allClients = data;
-                        renderClients(contentArea, allClients);
+                        renderClients(contentArea); // MUDANÇA: Não passa mais os dados aqui
                         break;
                 }
             } catch (err) {
@@ -210,34 +210,21 @@
             container.innerHTML = listHtml + '</div>';
         }
 
-        // --- FUNÇÃO ATUALIZADA ---
         function renderInteractions(container, interactions) {
             let listHtml = '<h2>Orçamentos e Contatos</h2><p class="text-muted">Funcionalidade de mudança de status será implementada no próximo passo.</p><div class="list-group">';
             interactions.forEach(i => {
                 const badgeColor = i.tipo_interacao === 'orcamento' ? 'bg-info text-dark' : 'bg-warning text-dark';
-                
-                // NOVO: Cria o texto detalhado para o tipo de interação
                 let typeText = i.tipo_interacao;
-                if (i.tipo_interacao === 'orcamento' && i.servico_nome) {
-                    typeText += `: <strong class="fw-bold">${i.servico_nome}</strong>`;
-                }
-
-                listHtml += `
-                    <div class="list-group-item list-group-item-dark">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">${i.nome} <small>(${i.email})</small></h5>
-                            <span class="badge ${badgeColor}">${typeText}</span>
-                        </div>
-                        <p class="mb-1">${i.mensagem}</p>
-                        <small class="text-muted">Recebido em: ${new Date(i.criado_em).toLocaleString('pt-BR')}</small>
-                    </div>`;
+                if (i.tipo_interacao === 'orcamento' && i.servico_nome) { typeText += `: <strong class="fw-bold">${i.servico_nome}</strong>`; }
+                listHtml += `<div class="list-group-item list-group-item-dark"><div class="d-flex w-100 justify-content-between"><h5 class="mb-1">${i.nome} <small>(${i.email})</small></h5><span class="badge ${badgeColor}">${typeText}</span></div><p class="mb-1">${i.mensagem}</p><small class="text-muted">Recebido em: ${new Date(i.criado_em).toLocaleString('pt-BR')}</small></div>`;
             });
             container.innerHTML = listHtml + '</div>';
         }
 
-        function renderClients(container, clients) {
-            let tableBodyHtml = '';
-            clients.forEach(c => { tableBodyHtml += createClientRow(c); });
+        // --- LÓGICA DE CLIENTES REESTRUTURADA ---
+        
+        function renderClients(container) {
+            // 1. Desenha o esqueleto da tabela (com a barra de pesquisa)
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>Clientes Cadastrados</h2>
@@ -246,29 +233,41 @@
                 <div class="table-responsive">
                     <table class="table table-dark table-striped table-hover">
                         <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr></thead>
-                        <tbody id="clients-table-body">${tableBodyHtml}</tbody>
+                        <tbody id="clients-table-body"></tbody>
                     </table>
                 </div>`;
-            attachClientEventListeners();
+            
+            // 2. Popula a tabela com todos os clientes
+            populateClientTable(allClients);
+
+            // 3. Adiciona o listener para a barra de pesquisa
+            document.getElementById('client-search').addEventListener('input', handleClientSearch);
         }
 
-        function createClientRow(client) {
-            const adminButtonClass = client.is_admin ? 'btn-success' : 'btn-outline-secondary';
-            const adminButtonText = client.is_admin ? 'Sim' : 'Não';
-            return `
-                <tr data-user-id="${client.id}">
-                    <td>${client.nome_completo || 'N/A'}</td>
-                    <td>${client.email}</td>
-                    <td>${client.telefone || 'N/A'}</td>
-                    <td><button class="btn btn-sm toggle-admin-btn ${adminButtonClass}" data-user-id="${client.id}" data-is-admin="${client.is_admin}">${adminButtonText}</button></td>
-                    <td><button class="btn btn-sm btn-danger delete-client-btn" data-user-id="${client.id}"><i class="bi bi-trash"></i></button></td>
-                </tr>`;
-        }
+        function populateClientTable(clients) {
+            const tableBody = document.getElementById('clients-table-body');
+            tableBody.innerHTML = ''; // Limpa a tabela antes de popular
+            
+            clients.forEach(c => {
+                const row = document.createElement('tr');
+                row.dataset.userId = c.id;
+                
+                const adminButtonClass = c.is_admin ? 'btn-success' : 'btn-outline-secondary';
+                const adminButtonText = c.is_admin ? 'Sim' : 'Não';
 
-        function attachClientEventListeners() {
-            document.getElementById('client-search')?.addEventListener('input', handleClientSearch);
-            document.querySelectorAll('.delete-client-btn').forEach(btn => btn.addEventListener('click', handleDeleteClient));
-            document.querySelectorAll('.toggle-admin-btn').forEach(btn => btn.addEventListener('click', handleToggleAdmin));
+                row.innerHTML = `
+                    <td>${c.nome_completo || 'N/A'}</td>
+                    <td>${c.email}</td>
+                    <td>${c.telefone || 'N/A'}</td>
+                    <td><button class="btn btn-sm toggle-admin-btn ${adminButtonClass}" data-is-admin="${c.is_admin}">${adminButtonText}</button></td>
+                    <td><button class="btn btn-sm btn-danger delete-client-btn"><i class="bi bi-trash"></i></button></td>`;
+                
+                // Adiciona os event listeners diretamente em cada botão da linha
+                row.querySelector('.toggle-admin-btn').addEventListener('click', () => handleToggleAdmin(c.id, c.is_admin));
+                row.querySelector('.delete-client-btn').addEventListener('click', () => handleDeleteClient(c.id));
+                
+                tableBody.appendChild(row);
+            });
         }
 
         function handleClientSearch(event) {
@@ -277,14 +276,10 @@
                 (client.nome_completo || '').toLowerCase().includes(searchTerm) || 
                 (client.email || '').toLowerCase().includes(searchTerm)
             );
-            const tableBody = document.getElementById('clients-table-body');
-            tableBody.innerHTML = '';
-            filteredClients.forEach(c => { tableBody.innerHTML += createClientRow(c); });
-            attachClientEventListeners();
+            populateClientTable(filteredClients); // Usa a mesma função para popular a tabela com os dados filtrados
         }
 
-        async function handleDeleteClient(event) {
-            const userId = event.currentTarget.dataset.userId;
+        async function handleDeleteClient(userId) {
             if (confirm('Tem certeza que deseja EXCLUIR este perfil de usuário? A conta de login continuará existindo, mas o perfil será removido.')) {
                 const { error } = await supabase.from('usuarios').delete().eq('id', userId);
                 if (error) { alert('Erro ao excluir perfil: ' + error.message); } 
@@ -295,10 +290,7 @@
             }
         }
         
-        async function handleToggleAdmin(event) {
-            const btn = event.currentTarget;
-            const userId = btn.dataset.userId;
-            const currentlyAdmin = btn.dataset.isAdmin === 'true';
+        async function handleToggleAdmin(userId, currentlyAdmin) {
             if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
                  const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
                  if (error) { alert('Erro ao alterar status de admin: ' + error.message); } 
