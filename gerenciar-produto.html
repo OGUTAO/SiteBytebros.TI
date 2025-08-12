@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Produto - Byte Bros.TI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-dark">
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card bg-dark text-light border-secondary">
+                    <div class="card-header">
+                        <h2 id="form-title">Adicionar Novo Produto</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="product-form">
+                            <input type="hidden" id="product-id">
+                            
+                            <div class="mb-3">
+                                <label for="product-name" class="form-label">Nome do Produto</label>
+                                <input type="text" class="form-control" id="product-name" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="product-details" class="form-label">Detalhes/Descrição</label>
+                                <textarea class="form-control" id="product-details" rows="3"></textarea>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="product-value" class="form-label">Preço (R$)</label>
+                                    <input type="number" class="form-control" id="product-value" step="0.01" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="product-quantity" class="form-label">Estoque (Quantidade)</label>
+                                    <input type="number" class="form-control" id="product-quantity" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="product-image" class="form-label">Imagem do Produto</label>
+                                <input class="form-control" type="file" id="product-image" accept="image/png, image/jpeg, image/webp">
+                                <small class="form-text text-muted">A imagem atual será mantida se nenhuma nova for selecionada.</small>
+                            </div>
+                            
+                            <div id="image-preview-container" class="mb-3 d-none">
+                                <p>Imagem Atual:</p>
+                                <img id="image-preview" src="" alt="Imagem do produto" class="img-fluid rounded" style="max-height: 200px;">
+                            </div>
+                            
+                            <div id="form-error" class="alert alert-danger d-none"></div>
+
+                            <div class="d-flex justify-content-between">
+                                <a href="ADM.html" class="btn btn-secondary">Cancelar</a>
+                                <button type="submit" id="save-button" class="btn btn-primary">Salvar Produto</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
+
+        const form = document.getElementById('product-form');
+        const formTitle = document.getElementById('form-title');
+        const productIdField = document.getElementById('product-id');
+        const productNameField = document.getElementById('product-name');
+        const productDetailsField = document.getElementById('product-details');
+        const productValueField = document.getElementById('product-value');
+        const productQuantityField = document.getElementById('product-quantity');
+        const productImageField = document.getElementById('product-image');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const saveButton = document.getElementById('save-button');
+        const formError = document.getElementById('form-error');
+
+        // Verifica se estamos em modo de edição
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('id');
+        let existingImageUrl = null;
+
+        async function loadProductForEdit() {
+            if (!editId) return;
+
+            formTitle.textContent = 'Editar Produto';
+            productIdField.value = editId;
+
+            const { data, error } = await supabase.from('produtos').select('*').eq('id', editId).single();
+
+            if (error) {
+                formError.textContent = 'Erro ao carregar produto: ' + error.message;
+                formError.classList.remove('d-none');
+                return;
+            }
+
+            productNameField.value = data.name;
+            productDetailsField.value = data.details;
+            productValueField.value = data.value;
+            productQuantityField.value = data.quantity;
+            
+            if (data.image) {
+                existingImageUrl = data.image;
+                imagePreview.src = data.image;
+                imagePreviewContainer.classList.remove('d-none');
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            formError.classList.add('d-none');
+            saveButton.disabled = true;
+            saveButton.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Salvando...`;
+
+            try {
+                let imageUrl = existingImageUrl;
+                const file = productImageField.files[0];
+
+                if (file) {
+                    // Upload da nova imagem
+                    const filePath = `public/${Date.now()}-${file.name}`;
+                    const { error: uploadError } = await supabase.storage.from('imagens_produtos').upload(filePath, file);
+
+                    if (uploadError) throw uploadError;
+
+                    // Pega a URL pública da imagem
+                    const { data: urlData } = supabase.storage.from('imagens_produtos').getPublicUrl(filePath);
+                    imageUrl = urlData.publicUrl;
+                }
+                
+                const productData = {
+                    name: productNameField.value,
+                    details: productDetailsField.value,
+                    value: parseFloat(productValueField.value),
+                    quantity: parseInt(productQuantityField.value),
+                    image: imageUrl,
+                };
+
+                let response;
+                if (editId) {
+                    // Atualiza produto existente
+                    response = await supabase.from('produtos').update(productData).eq('id', editId);
+                } else {
+                    // Cria novo produto
+                    response = await supabase.from('produtos').insert([productData]);
+                }
+
+                if (response.error) throw response.error;
+
+                alert('Produto salvo com sucesso!');
+                window.location.href = 'ADM.html';
+
+            } catch (error) {
+                formError.textContent = error.message;
+                formError.classList.remove('d-none');
+            } finally {
+                saveButton.disabled = false;
+                saveButton.innerHTML = 'Salvar Produto';
+            }
+        });
+
+        // Carrega os dados se estiver editando
+        loadProductForEdit();
+    </script>
+</body>
+</html>

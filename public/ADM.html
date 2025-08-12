@@ -81,7 +81,6 @@
     <script type="module">
         import { supabase } from './js/supabase-client.js';
 
-        // --- PASSO 3: COLE SEU UID DE SUPER ADMIN AQUI ---
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa'; 
 
         const loginSection = document.getElementById('admin-login-section');
@@ -97,7 +96,7 @@
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) { showLogin(); return; }
             
-            currentUserId = session.user.id; // Armazena o ID do usuário logado
+            currentUserId = session.user.id;
 
             const { data: user, error } = await supabase.from('usuarios').select('is_admin').eq('id', session.user.id).single();
             if (error || !user || !user.is_admin) {
@@ -205,10 +204,50 @@
                 </div>`;
         }
 
+        // --- FUNÇÃO ATUALIZADA ---
         function renderProducts(container, products) {
-            let tableHtml = `<h2>Produtos Cadastrados</h2><p class="text-muted">Funcionalidades de Adicionar/Editar serão implementadas no próximo passo.</p><div class="table-responsive"><table class="table table-dark table-striped table-hover"><thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th></tr></thead><tbody>`;
-            products.forEach(p => { tableHtml += `<tr><td>${p.id}</td><td>${p.name}</td><td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>${p.quantity}</td></tr>`; });
+            let tableHtml = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Produtos Cadastrados</h2>
+                    <a href="gerenciar-produto.html" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Adicionar Produto</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover">
+                        <thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
+                        <tbody>`;
+            
+            products.forEach(p => {
+                tableHtml += `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.name}</td>
+                        <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        <td>${p.quantity}</td>
+                        <td>
+                            <a href="gerenciar-produto.html?id=${p.id}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-fill"></i></a>
+                            <button class="btn btn-sm btn-outline-danger delete-product-btn" data-product-id="${p.id}"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+            
             container.innerHTML = tableHtml + `</tbody></table></div>`;
+
+            container.querySelectorAll('.delete-product-btn').forEach(btn => {
+                btn.addEventListener('click', handleDeleteProduct);
+            });
+        }
+
+        async function handleDeleteProduct(event) {
+            const productId = event.currentTarget.dataset.productId;
+            if (confirm('Tem certeza que deseja excluir este produto?')) {
+                const { error } = await supabase.from('produtos').delete().eq('id', productId);
+                if (error) {
+                    alert('Erro ao excluir produto: ' + error.message);
+                } else {
+                    alert('Produto excluído com sucesso!');
+                    loadTabContent('v-pills-products');
+                }
+            }
         }
 
         function renderNews(container, news) {
@@ -252,14 +291,12 @@
                 const adminCell = document.createElement('td');
                 const actionsCell = document.createElement('td');
 
-                // Botão de Admin
                 const adminButton = document.createElement('button');
                 adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
                 adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
                 adminButton.addEventListener('click', () => handleToggleAdmin(c.id, c.is_admin));
                 adminCell.appendChild(adminButton);
 
-                // Botão de Excluir
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
                 deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
@@ -287,12 +324,10 @@
         }
 
         async function handleDeleteClient(userId) {
-            // VERIFICAÇÃO: Apenas o Super Admin pode excluir
             if (currentUserId !== SUPER_ADMIN_USER_ID) {
                 alert('Apenas o Super Admin pode excluir usuários.');
                 return;
             }
-            // VERIFICAÇÃO: Não pode excluir a si mesmo
             if (userId === SUPER_ADMIN_USER_ID) {
                 alert('Você não pode excluir sua própria conta de Super Admin.');
                 return;
@@ -308,7 +343,6 @@
         }
         
         async function handleToggleAdmin(userId, currentlyAdmin) {
-            // VERIFICAÇÃO: Não pode alterar o status do Super Admin
             if (userId === SUPER_ADMIN_USER_ID) {
                 alert('O status do Super Admin não pode ser alterado.');
                 return;
