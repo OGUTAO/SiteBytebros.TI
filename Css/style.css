@@ -1,0 +1,87 @@
+/* Importação do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* Variáveis de Cores Globais */
+:root {
+    --bs-primary: #0d6efd;
+    --bs-secondary: #6c757d;
+    --bs-success: #198754;
+    --bs-info: #0dcaf0;
+    --bs-warning: #ffc107;
+    --bs-danger: #dc3545;
+    --bs-light: #f8f9fa;
+    --bs-dark: #212529;
+    --bs-font-sans-serif: 'Poppins', sans-serif;
+    --bytebros-accent: #ffa500;
+}
+
+/* Estilos para o Tema Escuro */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #121212;
+    --bs-body-color: #e0e0e0;
+    --bs-primary: #60a5fa;
+    --bs-light: #2d3748;
+    --bs-dark: #e2e8f0;
+    --bs-secondary: #a0aec0;
+}
+
+body {
+    font-family: var(--bs-font-sans-serif);
+}
+
+/* Cabeçalho */
+.navbar-brand .logo-text {
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: var(--bs-info);
+}
+.navbar-brand .logo-subtext {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+/* Seções */
+.section-padding {
+    padding: 60px 0;
+}
+
+.service-card, .news-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.service-card:hover, .news-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.175);
+}
+
+/* Rodapé */
+.footer {
+    background-color: var(--bs-dark);
+    color: var(--bs-light);
+}
+
+/* Página de Serviços */
+.service-detail-img {
+    max-height: 400px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+/* Formulários */
+.form-container {
+    max-width: 500px;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: var(--bs-light);
+    border-radius: 10px;
+}
+
+/* Loja de Peças */
+.product-card .card-img-top {
+    height: 200px;
+    object-fit: contain;
+}
+
+/* Admin Panel */
+#adminContent .nav-link {
+    cursor: pointer;
+}

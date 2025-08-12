@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Destaques - Byte Bros.TI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <script>
+        // Injeta a URL da API a partir do Netlify
+        window.API_BASE_URL = "${API_ENDPOINT}";
+    </script>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+    <nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <span class="logo-text">BYTE BROS.TI</span>
+                <div class="logo-subtext">Manutenção Digital</div>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="lojapecascliente.html">Loja</a></li>
+                    <li class="nav-item"><a class="nav-link" href="servicos.html">Serviços</a></li>
+                    <li class="nav-item"><a class="nav-link" href="atendimento.html">Suporte</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <div class="text-center mb-5">
+            <h1 class="display-5">Produtos em Destaque</h1>
+            <p class="lead text-muted">Confira o que há de novo, mais popular e as melhores ofertas da semana!</p>
+        </div>
+
+        <section id="mais-procurados" class="mb-5">
+            <h2 class="border-bottom pb-2 mb-4"><i class="bi bi-fire text-danger me-2"></i>Mais Procurados</h2>
+            <div id="mais-procurados-lista" class="row g-4">
+                </div>
+        </section>
+
+        <section id="novos-produtos" class="mb-5">
+            <h2 class="border-bottom pb-2 mb-4"><i class="bi bi-plus-circle text-success me-2"></i>Novos Produtos</h2>
+            <div id="novos-produtos-lista" class="row g-4">
+                </div>
+        </section>
+
+        <section id="ofertas-da-semana" class="mb-5">
+            <h2 class="border-bottom pb-2 mb-4"><i class="bi bi-tags-fill text-warning me-2"></i>Ofertas da Semana</h2>
+            <div id="ofertas-da-semana-lista" class="row g-4">
+                </div>
+        </section>
+    </main>
+    
+    <template id="product-card-template">
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <div class="card h-100 shadow-sm product-card">
+                <span class="badge position-absolute top-0 start-0 m-2 d-none"></span>
+                <img src="" class="card-img-top p-3" alt="Imagem do Produto">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title product-name"></h5>
+                    <p class="card-text text-muted product-details flex-grow-1"></p>
+                    <div class="mt-auto text-center">
+                        <p class="card-text product-price fs-5 fw-bold"></p>
+                        <a href="#" class="btn btn-primary w-100 product-link">Ver Detalhes</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <footer class="footer mt-auto py-3">
+        <div class="container text-center">
+            <p>&copy; 2025 Byte Bros.TI. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <script type="module">
+        import { productService } from './js/api.js';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const maisProcuradosLista = document.getElementById('mais-procurados-lista');
+            const novosProdutosLista = document.getElementById('novos-produtos-lista');
+            const ofertasDaSemanaLista = document.getElementById('ofertas-da-semana-lista');
+            const cardTemplate = document.getElementById('product-card-template');
+
+            function createProductCard(produto, tipo = null, ofertaData = null) {
+                const clone = cardTemplate.content.cloneNode(true);
+                const card = clone.querySelector('.card');
+                const badge = clone.querySelector('.badge');
+                
+                clone.querySelector('img').src = produto.image?.String || 'img/default_product.jpg';
+                clone.querySelector('.product-name').textContent = produto.name;
+                clone.querySelector('.product-details').textContent = produto.details?.String || 'Sem detalhes.';
+                clone.querySelector('.product-link').href = `lojapecascliente.html?produtoId=${produto.id}`;
+                
+                const priceEl = clone.querySelector('.product-price');
+                if (tipo === 'oferta' && ofertaData) {
+                    priceEl.innerHTML = `
+                        <small class="text-decoration-line-through text-muted">${parseFloat(ofertaData.precoAntigo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small>
+                        <span class="text-danger">${parseFloat(ofertaData.precoAtual).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    `;
+                    badge.textContent = 'Oferta!';
+                    badge.classList.add('bg-danger');
+                    badge.classList.remove('d-none');
+                } else {
+                    priceEl.textContent = parseFloat(produto.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                }
+
+                if (tipo === 'novo') {
+                    badge.textContent = 'Novo!';
+                    badge.classList.add('bg-success');
+                    badge.classList.remove('d-none');
+                }
+
+                return clone;
+            }
+            
+            function renderSection(container, productIds, allProducts, tipo = null, offerData = null) {
+                container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+                
+                if (!productIds || productIds.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center">Nenhum produto em destaque no momento.</p>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                productIds.forEach(id => {
+                    const produto = allProducts.find(p => String(p.id) === String(id));
+                    if (produto) {
+                        let oferta = tipo === 'oferta' ? offerData.find(o => String(o.id) === String(id)) : null;
+                        container.appendChild(createProductCard(produto, tipo, oferta));
+                    }
+                });
+            }
+
+            try {
+                const popularProductIds = JSON.parse(localStorage.getItem('popularProducts')) || [];
+                const newProductIds = JSON.parse(localStorage.getItem('newProductsAdmin')) || [];
+                const offerProducts = JSON.parse(localStorage.getItem('offersAdmin')) || [];
+                const offerProductIds = offerProducts.map(o => o.id);
+                
+                const allProducts = await productService.getProducts();
+
+                renderSection(maisProcuradosLista, popularProductIds, allProducts);
+                renderSection(novosProdutosLista, newProductIds, allProducts, 'novo');
+                renderSection(ofertasDaSemanaLista, offerProductIds, allProducts, 'oferta', offerProducts);
+
+            } catch (error) {
+                const errorMsg = `<div class="alert alert-danger">Erro ao carregar produtos: ${error.message}</div>`;
+                maisProcuradosLista.innerHTML = errorMsg;
+                novosProdutosLista.innerHTML = errorMsg;
+                ofertasDaSemanaLista.innerHTML = errorMsg;
+            }
+        });
+    </script>
+</body>
+</html>

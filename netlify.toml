@@ -1,0 +1,10 @@
+[build]
+  publish = "public"
+
+  command = "find public -name '*.html' -exec sh -c 'envsubst < \"$0\" > \"$0.tmp\" && mv \"$0.tmp\" \"$0\"' {} \\;"
+
+[build.environment]
+  API_ENDPOINT = "https://back-end-site-bytebros-nuot.onrender.com/api/"
+
+[build.processing.html]
+  enable = true

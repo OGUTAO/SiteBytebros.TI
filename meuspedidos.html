@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Pedidos - Byte Bros.TI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <script>
+        // Injeta a URL da API a partir do Netlify
+        window.API_BASE_URL = "${API_ENDPOINT}";
+    </script>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+    <nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <span class="logo-text">BYTE BROS.TI</span>
+            </a>
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="index.html">Menu Principal</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <div class="text-center mb-5">
+            <h1 class="display-5">Meus Pedidos e Histórico</h1>
+            <p class="lead text-muted">Acompanhe seus pedidos da loja e outras interações conosco.</p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="accordion" id="pedidosAccordion">
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePedidosAtivos" aria-expanded="true">
+                                <i class="bi bi-box-seam-fill me-2"></i>Pedidos Ativos na Loja
+                            </button>
+                        </h2>
+                        <div id="collapsePedidosAtivos" class="accordion-collapse collapse show" data-bs-parent="#pedidosAccordion">
+                            <div class="accordion-body" id="lista-pedidos-ativos">
+                                </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico">
+                                <i class="bi bi-clock-history me-2"></i>Histórico de Pedidos e Interações
+                            </button>
+                        </h2>
+                        <div id="collapseHistorico" class="accordion-collapse collapse" data-bs-parent="#pedidosAccordion">
+                            <div class="accordion-body" id="lista-historico-pedidos">
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer mt-auto py-3">
+        <div class="container text-center">
+            <p>&copy; 2025 Byte Bros.TI. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <script type="module">
+        import { orderService, supportService } from './js/api.js';
+
+        const listaPedidosAtivos = document.getElementById("lista-pedidos-ativos");
+        const listaHistoricoPedidos = document.getElementById("lista-historico-pedidos");
+        
+        const spinner = `<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+
+        function criarItemPedido(pedido) {
+            const dataFormatada = new Date(pedido.data_pedido).toLocaleDateString('pt-BR');
+            const valorTotal = parseFloat(pedido.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            
+            return `
+                <div class="list-group-item list-group-item-action flex-column align-items-start">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">Pedido #${pedido.id}</h5>
+                        <small>${dataFormatada}</small>
+                    </div>
+                    <p class="mb-1"><strong>Status:</strong> <span class="badge bg-warning text-dark">${pedido.status}</span></p>
+                    <p class="mb-1"><strong>Total:</strong> ${valorTotal}</p>
+                    <small><strong>Endereço:</strong> ${pedido.endereco_entrega || 'N/A'}</small>
+                </div>
+            `;
+        }
+        
+        async function carregarDados() {
+            if (!localStorage.getItem('userToken')) {
+                listaPedidosAtivos.innerHTML = '<div class="alert alert-warning">Você precisa estar logado para ver seus pedidos.</div>';
+                return;
+            }
+
+            listaPedidosAtivos.innerHTML = spinner;
+            listaHistoricoPedidos.innerHTML = spinner;
+
+            try {
+                const pedidos = await orderService.getOrders();
+                const pedidosAtivos = pedidos.filter(p => p.status !== 'Entregue' && p.status !== 'Concluído');
+                const historico = pedidos.filter(p => p.status === 'Entregue' || p.status === 'Concluído');
+                
+                if (pedidosAtivos.length > 0) {
+                    listaPedidosAtivos.innerHTML = '<div class="list-group">' + pedidosAtivos.map(criarItemPedido).join('') + '</div>';
+                } else {
+                    listaPedidosAtivos.innerHTML = '<p class="text-muted text-center">Nenhum pedido ativo no momento.</p>';
+                }
+
+                if (historico.length > 0) {
+                    listaHistoricoPedidos.innerHTML = '<div class="list-group">' + historico.map(criarItemPedido).join('') + '</div>';
+                } else {
+                    listaHistoricoPedidos.innerHTML = '<p class="text-muted text-center">Nenhum pedido no histórico.</p>';
+                }
+
+            } catch (error) {
+                listaPedidosAtivos.innerHTML = `<div class="alert alert-danger">Erro ao carregar pedidos: ${error.message}</div>`;
+                listaHistoricoPedidos.innerHTML = `<div class="alert alert-danger">Erro ao carregar histórico: ${error.message}</div>`;
+            }
+        }
+
+        carregarDados();
+    </script>
+</body>
+</html>
