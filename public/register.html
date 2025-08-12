@@ -6,11 +6,10 @@
     <title>Cadastro - Byte Bros.TI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Carrega a biblioteca oficial do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="css/style.css" rel="stylesheet">
-    <script>
-        // Injeta a URL da API a partir do Netlify
-        window.API_BASE_URL = "${API_ENDPOINT}";
-    </script>
+    <!-- A variável API_ENDPOINT não é mais necessária aqui -->
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -74,16 +73,20 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="js/main.js"></script>
+    
+    <!-- SCRIPT MODIFICADO PARA USAR SUPABASE -->
     <script type="module">
-        import { authService } from './js/api.js';
+        import { supabase } from './js/supabase-client.js';
 
         const registerForm = document.getElementById('register-form');
         const errorMessage = document.getElementById('error-message');
 
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            errorMessage.classList.add('d-none'); // Esconde o erro
+            errorMessage.classList.add('d-none'); // Esconde mensagens de erro antigas
+            const btn = e.submitter;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Cadastrando...`;
 
             const name = registerForm.name.value;
             const email = registerForm.email.value;
@@ -94,27 +97,32 @@
             if (password !== confirmPassword) {
                 errorMessage.textContent = 'As senhas não coincidem.';
                 errorMessage.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = 'Cadastrar';
                 return;
             }
 
-            try {
-                const userData = {
-                    nome_completo: name,
-                    email: email,
-                    telefone: phone,
-                    senha: password
-                };
-                
-                const data = await authService.registerUser(userData);
-                
-                // Salva o token e redireciona
-                localStorage.setItem('userToken', data.token);
-                localStorage.setItem('userName', data.nome);
-                window.location.href = 'index.html';
+            // Usa a função de cadastro do Supabase
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    // Salva dados adicionais no perfil do usuário
+                    data: {
+                        nome_completo: name,
+                        telefone: phone
+                    }
+                }
+            });
 
-            } catch (error) {
+            if (error) {
                 errorMessage.textContent = `Falha no cadastro: ${error.message}`;
                 errorMessage.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = 'Cadastrar';
+            } else {
+                alert('Cadastro realizado! Verifique seu e-mail para confirmar a conta antes de fazer o login.');
+                window.location.href = 'login.html';
             }
         });
     </script>

@@ -1,39 +1,40 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="light">
+<html lang="pt-BR" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Administração - Byte Bros.TI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="css/style.css" rel="stylesheet">
     <style>
-        /* Estilos específicos para o painel de admin */
+        body { background-color: #212529; }
         #admin-login-section { min-height: 100vh; }
-        #admin-dashboard { display: none; } /* O painel começa escondido */
+        #admin-dashboard { display: none; }
+        .nav-pills .nav-link { cursor: pointer; }
     </style>
-    <script>
-        window.API_BASE_URL = "${API_ENDPOINT}";
-    </script>
 </head>
-<body class="bg-light">
+<body>
 
+    <!-- Seção de Login do Admin -->
     <div id="admin-login-section" class="d-flex align-items-center justify-content-center">
-        <div class="form-container" style="max-width: 400px;">
+        <div class="form-container bg-dark text-light p-4 rounded-3 shadow" style="max-width: 400px;">
              <div class="text-center mb-4">
-                <img src="img/bytebros.png" alt="Logo Byte Bros" width="100" class="mb-3">
+                <img src="img/bytebros.png" alt="Logo Byte Bros" width="100" class="mb-3"> 
                 <h2>Acesso Restrito</h2>
                 <p class="text-muted">Painel de Administração</p>
             </div>
             <form id="admin-login-form">
                 <div class="mb-3">
-                    <label for="admin-email" class="form-label">Email</label>
+                    <label for="admin-email" class="form-label">Email de Administrador</label>
                     <input type="email" class="form-control" id="admin-email" required>
                 </div>
                 <div class="mb-3">
                     <label for="admin-password" class="form-label">Senha</label>
                     <input type="password" class="form-control" id="admin-password" required>
                 </div>
+                <div id="login-error" class="alert alert-danger d-none"></div>
                 <div class="d-grid">
                     <button type="submit" class="btn btn-primary">Entrar</button>
                 </div>
@@ -41,8 +42,9 @@
         </div>
     </div>
 
+    <!-- Dashboard do Admin (Oculto por padrão) -->
     <div id="admin-dashboard">
-        <nav class="navbar navbar-dark bg-dark fixed-top">
+        <nav class="navbar navbar-dark bg-dark fixed-top shadow-sm">
             <div class="container-fluid">
                 <a class="navbar-brand" href="#">Painel Byte Bros.TI</a>
                 <div class="d-flex align-items-center">
@@ -54,38 +56,28 @@
 
         <div class="container-fluid" style="margin-top: 70px;">
             <div class="row">
+                <!-- Navegação em Abas -->
                 <div class="col-lg-2">
                     <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                        <button class="nav-link active" id="v-pills-dashboard-tab" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard" type="button"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
-                        <button class="nav-link" id="v-pills-products-tab" data-bs-toggle="pill" data-bs-target="#v-pills-products" type="button"><i class="bi bi-box-seam me-2"></i>Produtos</button>
-                        <button class="nav-link" id="v-pills-news-tab" data-bs-toggle="pill" data-bs-target="#v-pills-news" type="button"><i class="bi bi-newspaper me-2"></i>Notícias</button>
-                        <button class="nav-link" id="v-pills-quotes-tab" data-bs-toggle="pill" data-bs-target="#v-pills-quotes" type="button"><i class="bi bi-file-earmark-text me-2"></i>Orçamentos</button>
-                        <button class="nav-link" id="v-pills-support-tab" data-bs-toggle="pill" data-bs-target="#v-pills-support" type="button"><i class="bi bi-headset me-2"></i>Suporte</button>
-                        <button class="nav-link" id="v-pills-clients-tab" data-bs-toggle="pill" data-bs-target="#v-pills-clients" type="button"><i class="bi bi-people me-2"></i>Clientes</button>
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-products"><i class="bi bi-box-seam me-2"></i>Produtos</button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-news"><i class="bi bi-newspaper me-2"></i>Notícias</button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-clients"><i class="bi bi-people me-2"></i>Clientes</button>
                     </div>
                 </div>
 
+                <!-- Conteúdo das Abas -->
                 <div class="col-lg-10">
-                    <div class="tab-content" id="v-pills-tabContent">
+                    <div class="tab-content card bg-dark text-light border-secondary p-4" id="v-pills-tabContent">
                         <div class="tab-pane fade show active" id="v-pills-dashboard">
                             <h2>Bem-vindo ao Painel de Controle</h2>
                             <p>Utilize o menu ao lado para gerenciar o conteúdo do site.</p>
                         </div>
-                        <div class="tab-pane fade" id="v-pills-products">
-                            <h2>Gerenciar Produtos</h2>
-                            </div>
-                        <div class="tab-pane fade" id="v-pills-news">
-                            <h2>Gerenciar Notícias</h2>
-                            </div>
-                        <div class="tab-pane fade" id="v-pills-quotes">
-                            <h2>Orçamentos Recebidos</h2>
-                            </div>
-                        <div class="tab-pane fade" id="v-pills-support">
-                            <h2>Tickets de Suporte</h2>
-                            </div>
-                        <div class="tab-pane fade" id="v-pills-clients">
-                            <h2>Gerenciar Clientes</h2>
-                            </div>
+                        <div class="tab-pane fade" id="v-pills-products"></div>
+                        <div class="tab-pane fade" id="v-pills-news"></div>
+                        <div class="tab-pane fade" id="v-pills-interactions"></div>
+                        <div class="tab-pane fade" id="v-pills-clients"></div>
                     </div>
                 </div>
             </div>
@@ -93,6 +85,132 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="js/admin.js"></script>
+    
+    <!-- SCRIPT MODIFICADO PARA USAR SUPABASE -->
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
+
+        const loginSection = document.getElementById('admin-login-section');
+        const dashboardSection = document.getElementById('admin-dashboard');
+        const loginForm = document.getElementById('admin-login-form');
+        const logoutBtn = document.getElementById('admin-logout-btn');
+        const adminEmailDisplay = document.getElementById('admin-email-display');
+        const loginError = document.getElementById('login-error');
+
+        // Função para verificar se o usuário logado é um admin
+        async function checkAdminStatus() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                showLogin();
+                return;
+            }
+
+            // Busca o perfil do usuário para verificar a flag 'is_admin'
+            const { data: user, error } = await supabase
+                .from('usuarios')
+                .select('is_admin')
+                .eq('id', session.user.id)
+                .single();
+
+            if (error || !user || !user.is_admin) {
+                alert('Acesso negado. Esta área é restrita para administradores.');
+                await supabase.auth.signOut();
+                showLogin();
+            } else {
+                showDashboard(session.user.email);
+            }
+        }
+
+        function showLogin() {
+            loginSection.style.display = 'flex';
+            dashboardSection.style.display = 'none';
+        }
+
+        function showDashboard(email) {
+            loginSection.style.display = 'none';
+            dashboardSection.style.display = 'block';
+            adminEmailDisplay.textContent = email;
+        }
+
+        // Evento de submit do formulário de login
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            loginError.classList.add('d-none');
+            const btn = e.submitter;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Entrando...`;
+
+            const email = loginForm.email.value;
+            const password = loginForm.password.value;
+
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                loginError.textContent = error.message;
+                loginError.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = 'Entrar';
+            } else {
+                // Após o login, verifica se é admin
+                await checkAdminStatus();
+            }
+        });
+
+        // Evento de logout
+        logoutBtn.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            showLogin();
+        });
+
+        // Carrega o conteúdo da aba quando ela é mostrada
+        document.querySelectorAll('#v-pills-tab button').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', (event) => {
+                const targetId = event.target.getAttribute('data-bs-target').substring(1);
+                loadTabContent(targetId);
+            });
+        });
+
+        async function loadTabContent(tabId) {
+            const contentArea = document.getElementById(tabId);
+            contentArea.innerHTML = `<div class="d-flex justify-content-center"><div class="spinner-border" role="status"></div></div>`;
+
+            try {
+                if (tabId === 'v-pills-products') {
+                    const { data, error } = await supabase.from('produtos').select('*');
+                    if (error) throw error;
+                    renderProducts(contentArea, data);
+                }
+                // Adicionar lógica para outras abas aqui
+            } catch (error) {
+                contentArea.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+            }
+        }
+
+        function renderProducts(container, products) {
+            let tableHtml = `<h2>Produtos Cadastrados</h2>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover">
+                        <thead>
+                            <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th></tr>
+                        </thead>
+                        <tbody>`;
+            
+            products.forEach(p => {
+                tableHtml += `<tr>
+                    <td>${p.id}</td>
+                    <td>${p.name}</td>
+                    <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                    <td>${p.quantity}</td>
+                </tr>`;
+            });
+
+            tableHtml += `</tbody></table></div>`;
+            container.innerHTML = tableHtml;
+        }
+
+        // Verificação inicial ao carregar a página
+        checkAdminStatus();
+
+    </script>
 </body>
 </html>
