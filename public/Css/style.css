@@ -33,7 +33,7 @@ body {
 .navbar-brand .logo-text {
     font-weight: bold;
     letter-spacing: 1px;
-    color: var(--bs-info);
+    color: #0e63be;;
 }
 .navbar-brand .logo-subtext {
     font-size: 0.8rem;
@@ -84,4 +84,61 @@ body {
 /* Admin Panel */
 #adminContent .nav-link {
     cursor: pointer;
+}
+
+.servicos-titulo {
+    color: #0e63be; /* Use a cor que preferir. Este é o azul principal do Bootstrap */
+}
+
+/* Estilos para o carrossel de serviços na página inicial */
+.carousel-item-services .card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+.carousel-control-prev, .carousel-control-next {
+    width: auto;
+    opacity: 1;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.carousel-control-prev {
+    left: -4rem; /* Aumenta a distância da borda esquerda */
+}
+.carousel-control-next {
+    right: -4rem; /* Aumenta a distância da borda direita */
+}
+.carousel-control-prev-icon, .carousel-control-next-icon {
+    background-color: var(--bs-dark);
+    border-radius: 0; /* Remove o fundo arredondado */
+    padding: 1rem;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+.carousel-control-prev-icon::before,
+.carousel-control-next-icon::before {
+    font-size: 2rem; /* Aumenta o tamanho do ícone */
+}
+.carousel-control-prev-icon, .carousel-control-next-icon {
+    width: 3rem; /* Define uma largura fixa para o ícone */
+    height: 3rem; /* Define uma altura fixa para o ícone */
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-image: none; /* Remove a imagem de fundo padrão */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.carousel-control-prev-icon::before {
+    content: '<'; /* Use um caractere de seta como ícone */
+    color: var(--bs-light);
+    font-weight: bold;
+}
+.carousel-control-next-icon::before {
+    content: '>'; /* Use um caractere de seta como ícone */
+    color: var(--bs-light);
+    font-weight: bold;
+}
+.carousel-control-prev-icon:hover, .carousel-control-next-icon:hover {
+    opacity: 1;
 }
