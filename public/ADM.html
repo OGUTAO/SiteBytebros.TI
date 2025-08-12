@@ -139,8 +139,8 @@
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Entrando...`;
 
-            const email = loginForm.email.value;
-            const password = loginForm.password.value;
+            const email = document.getElementById('admin-email').value;
+            const password = document.getElementById('admin-password').value;
 
             const { error } = await supabase.auth.signInWithPassword({ email, password });
 
