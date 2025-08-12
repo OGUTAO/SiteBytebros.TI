@@ -81,17 +81,24 @@
     <script type="module">
         import { supabase } from './js/supabase-client.js';
 
+        // --- PASSO 3: COLE SEU UID DE SUPER ADMIN AQUI ---
+        const SUPER_ADMIN_USER_ID = '35e721b5-d3e7-4d4c-8883-efb2e91527f8'; 
+
         const loginSection = document.getElementById('admin-login-section');
         const dashboardSection = document.getElementById('admin-dashboard');
         const loginForm = document.getElementById('admin-login-form');
         const logoutBtn = document.getElementById('admin-logout-btn');
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
-        let allClients = []; 
+        let allClients = [];
+        let currentUserId = null;
 
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) { showLogin(); return; }
+            
+            currentUserId = session.user.id; // Armazena o ID do usuário logado
+
             const { data: user, error } = await supabase.from('usuarios').select('is_admin').eq('id', session.user.id).single();
             if (error || !user || !user.is_admin) {
                 await supabase.auth.signOut();
@@ -177,7 +184,7 @@
                         ({ data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin, created_at').order('created_at'));
                         if (error) throw error;
                         allClients = data;
-                        renderClients(contentArea); // MUDANÇA: Não passa mais os dados aqui
+                        renderClients(contentArea);
                         break;
                 }
             } catch (err) {
@@ -221,10 +228,7 @@
             container.innerHTML = listHtml + '</div>';
         }
 
-        // --- LÓGICA DE CLIENTES REESTRUTURADA ---
-        
         function renderClients(container) {
-            // 1. Desenha o esqueleto da tabela (com a barra de pesquisa)
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>Clientes Cadastrados</h2>
@@ -236,36 +240,39 @@
                         <tbody id="clients-table-body"></tbody>
                     </table>
                 </div>`;
-            
-            // 2. Popula a tabela com todos os clientes
             populateClientTable(allClients);
-
-            // 3. Adiciona o listener para a barra de pesquisa
             document.getElementById('client-search').addEventListener('input', handleClientSearch);
         }
 
         function populateClientTable(clients) {
             const tableBody = document.getElementById('clients-table-body');
-            tableBody.innerHTML = ''; // Limpa a tabela antes de popular
-            
+            tableBody.innerHTML = ''; 
             clients.forEach(c => {
                 const row = document.createElement('tr');
-                row.dataset.userId = c.id;
-                
-                const adminButtonClass = c.is_admin ? 'btn-success' : 'btn-outline-secondary';
-                const adminButtonText = c.is_admin ? 'Sim' : 'Não';
+                const adminCell = document.createElement('td');
+                const actionsCell = document.createElement('td');
 
+                // Botão de Admin
+                const adminButton = document.createElement('button');
+                adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
+                adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
+                adminButton.addEventListener('click', () => handleToggleAdmin(c.id, c.is_admin));
+                adminCell.appendChild(adminButton);
+
+                // Botão de Excluir
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
+                deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteButton.addEventListener('click', () => handleDeleteClient(c.id));
+                actionsCell.appendChild(deleteButton);
+                
                 row.innerHTML = `
                     <td>${c.nome_completo || 'N/A'}</td>
                     <td>${c.email}</td>
-                    <td>${c.telefone || 'N/A'}</td>
-                    <td><button class="btn btn-sm toggle-admin-btn ${adminButtonClass}" data-is-admin="${c.is_admin}">${adminButtonText}</button></td>
-                    <td><button class="btn btn-sm btn-danger delete-client-btn"><i class="bi bi-trash"></i></button></td>`;
+                    <td>${c.telefone || 'N/A'}</td>`;
                 
-                // Adiciona os event listeners diretamente em cada botão da linha
-                row.querySelector('.toggle-admin-btn').addEventListener('click', () => handleToggleAdmin(c.id, c.is_admin));
-                row.querySelector('.delete-client-btn').addEventListener('click', () => handleDeleteClient(c.id));
-                
+                row.appendChild(adminCell);
+                row.appendChild(actionsCell);
                 tableBody.appendChild(row);
             });
         }
@@ -276,11 +283,21 @@
                 (client.nome_completo || '').toLowerCase().includes(searchTerm) || 
                 (client.email || '').toLowerCase().includes(searchTerm)
             );
-            populateClientTable(filteredClients); // Usa a mesma função para popular a tabela com os dados filtrados
+            populateClientTable(filteredClients);
         }
 
         async function handleDeleteClient(userId) {
-            if (confirm('Tem certeza que deseja EXCLUIR este perfil de usuário? A conta de login continuará existindo, mas o perfil será removido.')) {
+            // VERIFICAÇÃO: Apenas o Super Admin pode excluir
+            if (currentUserId !== SUPER_ADMIN_USER_ID) {
+                alert('Apenas o Super Admin pode excluir usuários.');
+                return;
+            }
+            // VERIFICAÇÃO: Não pode excluir a si mesmo
+            if (userId === SUPER_ADMIN_USER_ID) {
+                alert('Você não pode excluir sua própria conta de Super Admin.');
+                return;
+            }
+            if (confirm('Tem certeza que deseja EXCLUIR este perfil de usuário?')) {
                 const { error } = await supabase.from('usuarios').delete().eq('id', userId);
                 if (error) { alert('Erro ao excluir perfil: ' + error.message); } 
                 else {
@@ -291,6 +308,11 @@
         }
         
         async function handleToggleAdmin(userId, currentlyAdmin) {
+            // VERIFICAÇÃO: Não pode alterar o status do Super Admin
+            if (userId === SUPER_ADMIN_USER_ID) {
+                alert('O status do Super Admin não pode ser alterado.');
+                return;
+            }
             if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
                  const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
                  if (error) { alert('Erro ao alterar status de admin: ' + error.message); } 
