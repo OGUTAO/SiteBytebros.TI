@@ -109,17 +109,19 @@
 
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) { showLogin(); return; }
+            if (!session) { 
+                showLogin(); 
+                return; 
+            }
             currentUserId = session.user.id;
 
-            // Busca o perfil completo do usuário para verificar se é admin e pegar o nome
             const { data: userProfile, error } = await supabase.from('usuarios').select('is_admin, nome_completo').eq('id', session.user.id).single();
 
             if (error || !userProfile || !userProfile.is_admin) {
-                await supabase.auth.signOut();
                 showLogin();
+                loginError.textContent = "Acesso negado. Esta área é restrita para administradores.";
+                loginError.classList.remove('d-none');
             } else {
-                // Armazena os dados do admin logado
                 currentAdminName = userProfile.nome_completo;
                 currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
@@ -127,8 +129,16 @@
             }
                 }
 
-        function showLogin() { loginSection.classList.remove('d-none'); dashboardSection.classList.add('d-none'); }
-        function showDashboard(email) { loginSection.classList.add('d-none'); dashboardSection.classList.remove('d-none'); adminEmailDisplay.textContent = email; }
+        function showLogin() { 
+            loginSection.classList.remove('d-none'); 
+            dashboardSection.classList.add('d-none'); 
+        }
+
+        function showDashboard(email) { 
+            loginSection.classList.add('d-none'); 
+            dashboardSection.classList.remove('d-none'); 
+            adminEmailDisplay.textContent = email; 
+        }
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -141,12 +151,18 @@
                 loginError.classList.remove('d-none');
                 btn.disabled = false;
                 btn.innerHTML = 'Entrar';
-            } else { await checkAdminStatus(); }
+            } else { 
+                await checkAdminStatus(); 
+            }
         });
 
-        logoutBtn.addEventListener('click', async () => { await supabase.auth.signOut(); showLogin(); });
+        logoutBtn.addEventListener('click', async () => { 
+            await supabase.auth.signOut(); 
+            loginError.classList.add('d-none');
+            loginError.textContent = '';
+            showLogin(); 
+        });
 
-        // --- Lógica de Carregamento de Abas ---
         document.querySelectorAll('#v-pills-tab button').forEach(tab => {
             tab.addEventListener('shown.bs.tab', (event) => {
                 const targetId = event.target.getAttribute('data-bs-target').substring(1);
@@ -266,7 +282,6 @@
                 const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
                 const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
                 
-                // Cria o HTML para exibir quem modificou por último
                 let modificadoPorHtml = '';
                 if (item.status_modificado_por_nome) {
                     modificadoPorHtml = `
@@ -311,7 +326,8 @@
                                     ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
                                 </div>
                             </div>
-                            ${modificadoPorHtml} </div>
+                            ${modificadoPorHtml} 
+                        </div>
                     </div>`;
                 accordionContainer.appendChild(accordionItem);
             });
@@ -352,8 +368,8 @@
                 <div class="d-flex justify-content-between align-items-center my-4">
                     <ul class="nav nav-pills">
                         <li class="nav-item"><button class="nav-link ${initialFilter === 'ativos' ? 'active' : ''}" data-filter="ativos">Ativos</button></li>
-                        <li class="nav-item"><button class="nav-link ${initialFilter === 'concluidas' ? 'active' : ''}" data-filter="concluidas">Concluídas</button></li>
-                        <li class="nav-item"><button class="nav-link ${initialFilter === 'canceladas' ? 'active' : ''}" data-filter="canceladas">Canceladas</button></li>
+                        <li class="nav-item"><button class="nav-link" data-filter="concluidas">Concluídas</button></li>
+                        <li class="nav-item"><button class="nav-link" data-filter="canceladas">Canceladas</button></li>
                     </ul>
                     <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." autocomplete="off">
                 </div>
@@ -554,7 +570,6 @@
                 const interactionId = e.target.dataset.interactionId;
                 const newStatus = e.target.value === 'null' ? null : e.target.value;
                 try {
-                    // Prepara os dados para a atualização, incluindo nome e email do admin
                     const updateData = { 
                         status: newStatus,
                         status_modificado_por_nome: currentAdminName,
@@ -564,7 +579,6 @@
                     const { error } = await supabase.from('interacoes').update(updateData).eq('id', interactionId);
                     if (error) throw error;
 
-                    // Atualiza os dados locais para refletir a mudança imediatamente na UI
                     const interaction = allInteractions.find(i => String(i.id) === interactionId);
                     if(interaction) {
                         interaction.status = newStatus;
@@ -586,7 +600,8 @@
                 } catch (error) { alert('Erro ao atualizar equipe: ' + error.message); }
             }
         });
-        // // --- Inicialização ---
+
+        // --- Inicialização ---
         checkAdminStatus();
     </script>
 </body>
