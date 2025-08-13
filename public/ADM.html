@@ -98,6 +98,9 @@
         const logoutBtn = document.getElementById('admin-logout-btn');
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
+        
+        // : Adicionada variável para guardar produtos
+        let allProducts = []; 
         let allClients = [];
         let currentUserId = null;
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
@@ -150,7 +153,7 @@
             try {
                 switch (tabId) {
                     case 'v-pills-dashboard': await renderDashboard(contentArea); break;
-                    case 'v-pills-products': await renderProducts(contentArea, searchTerm); break;
+                    case 'v-pills-products': await renderProducts(contentArea); break; // Removido searchTerm daqui
                     case 'v-pills-news': await renderNews(contentArea); break;
                     case 'v-pills-interactions': await renderInteractions(contentArea, filter, searchTerm); break;
                     case 'v-pills-clients': await renderClients(contentArea); break;
@@ -174,56 +177,73 @@
                 </div>`;
         }
 
-        // : Adicionado um botão de busca
-        async function renderProducts(container, searchTerm = '') {
+        // // Função que RENDERIZA A LISTA DE PRODUTOS na tabela
+        function populateProductTable(products) {
+            const tableBody = document.getElementById('products-table-body');
+            tableBody.innerHTML = ''; // Limpa a tabela
+            
+            if (products.length > 0) {
+                products.forEach(p => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${p.id}</td>
+                        <td>${p.name}</td>
+                        <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        <td>${p.quantity}</td>
+                        <td>
+                            <a href="gerenciar-produto.html?id=${p.id}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-fill"></i></a>
+                            <button class="btn btn-sm btn-outline-danger delete-product-btn" data-product-id="${p.id}"><i class="bi bi-trash"></i></button>
+                        </td>`;
+                    tableBody.appendChild(row);
+                });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted p-4">Nenhum produto encontrado.</td></tr>`;
+            }
+        }
+
+        // Função que FILTRA A LISTA DE PRODUTOS baseada na busca
+        function handleProductSearch(event) {
+            const searchTerm = event.target.value.toLowerCase();
+            const filteredProducts = allProducts.filter(p =>
+                p.name.toLowerCase().includes(searchTerm) ||
+                String(p.id).includes(searchTerm)
+            );
+            populateProductTable(filteredProducts);
+        }
+
+        // Função que MONTA O PAINEL DE PRODUTOS
+        async function renderProducts(container) {
+            // 1. Pega os dados do Supabase
             const { data, error } = await supabase.from('produtos').select('*').order('id');
             if (error) throw error;
+            allProducts = data; // 2. Armazena os dados na variável global
             
-            const normalizedSearch = searchTerm.toLowerCase();
-            const filteredData = searchTerm ? data.filter(p => 
-                p.name.toLowerCase().includes(normalizedSearch) || 
-                String(p.id).includes(normalizedSearch)
-            ) : data;
-
-            let html = `
+            // 3. Monta o HTML estático (título, busca, estrutura da tabela)
+            container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Produtos Cadastrados</h2>
-                    <div class="input-group w-50">
-                        <input type="search" id="product-search-input" class="form-control" placeholder="Buscar por Nome ou ID..." value="${searchTerm}" autocomplete="off">
-                        <button class="btn btn-outline-secondary" type="button" id="product-search-btn"><i class="bi bi-search"></i></button>
-                    </div>
+                    <input type="search" id="product-search-input" class="form-control w-50" placeholder="Buscar por Nome ou ID..." autocomplete="off">
                 </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-striped table-hover">
                         <thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
-                        <tbody>`;
-            
-            if (filteredData.length > 0) {
-                filteredData.forEach(p => {
-                    html += `
-                        <tr>
-                            <td>${p.id}</td>
-                            <td>${p.name}</td>
-                            <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                            <td>${p.quantity}</td>
-                            <td>
-                                <a href="gerenciar-produto.html?id=${p.id}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-fill"></i></a>
-                                <button class="btn btn-sm btn-outline-danger delete-product-btn" data-product-id="${p.id}"><i class="bi bi-trash"></i></button>
-                            </td>
-                        </tr>`;
-                });
-            } else {
-                html += `<tr><td colspan="5" class="text-center text-muted p-4">Nenhum produto encontrado.</td></tr>`;
-            }
-            html += `</tbody></table></div><a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>`;
-            container.innerHTML = html;
+                        <tbody id="products-table-body"></tbody>
+                    </table>
+                </div>
+                <a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>
+            `;
+
+            // 4. Adiciona o listener de evento 'input' para a busca em tempo real
+            document.getElementById('product-search-input').addEventListener('input', handleProductSearch);
+
+            // 5. Popula a tabela com todos os produtos pela primeira vez
+            populateProductTable(allProducts);
         }
         
-        async function renderNews(container) {
+        // async function renderNews(container) {
             container.innerHTML = '<h2>Gerenciamento de Notícias (Em breve)</h2>';
         }
-
-        // : Adicionado um botão de busca
+        
         async function renderInteractions(container, filter = 'ativos', searchTerm = '') {
             const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
             if(error) throw error;
@@ -396,35 +416,32 @@
         // --- Event Listeners Globais ---
         const tabContent = document.getElementById('v-pills-tabContent');
         
-        // // O evento 'input' foi removido para evitar recarregamento a cada letra digitada.
-        // A lógica agora é acionada por 'click' no botão de busca ou 'keyup' (tecla Enter).
-
         function triggerInteractionSearch() {
             const searchInput = document.getElementById('interaction-search-input');
             const currentFilterEl = document.querySelector('#v-pills-interactions .nav-link.active');
-            // Mapeia o texto do botão para o valor do filtro
             const filterMap = { 'ativos': 'ativos', 'concluídas': 'concluidas', 'canceladas': 'canceladas' };
             const currentFilter = filterMap[currentFilterEl.textContent.toLowerCase()] || 'ativos';
             loadTabContent('v-pills-interactions', currentFilter, searchInput.value);
         }
 
-        function triggerProductSearch() {
-            const searchInput = document.getElementById('product-search-input');
-            loadTabContent('v-pills-products', null, searchInput.value);
-        }
-
         tabContent.addEventListener('click', async (e) => {
-            // Lógica para o botão de busca de interações
             if (e.target.closest('#interaction-search-btn')) {
                 triggerInteractionSearch();
             }
             
-            // Lógica para o botão de busca de produtos
-            if (e.target.closest('#product-search-btn')) {
-                triggerProductSearch();
+            if (e.target.closest('.delete-product-btn')) {
+                const btn = e.target.closest('.delete-product-btn');
+                if (confirm('Deseja excluir este produto?')) {
+                    const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
+                    if (error) alert('Erro: ' + error.message);
+                    else {
+                        // Remove from the local array and re-render the table
+                        allProducts = allProducts.filter(p => String(p.id) !== btn.dataset.productId);
+                        populateProductTable(allProducts);
+                    }
+                }
             }
-            
-            // Outras lógicas de clique (excluir, etc.)
+
             if (e.target.closest('.delete-interaction-btn')) {
                 const btn = e.target.closest('.delete-interaction-btn');
                 const interactionId = btn.dataset.interactionId;
@@ -432,18 +449,11 @@
                     try {
                         const { error } = await supabase.from('interacoes').delete().eq('id', interactionId);
                         if (error) throw error;
-                        triggerInteractionSearch(); // Recarrega a lista após exclusão
+                        triggerInteractionSearch();
                     } catch (error) { alert('Erro ao excluir: ' + error.message); }
                 }
             }
-            if (e.target.closest('.delete-product-btn')) {
-                const btn = e.target.closest('.delete-product-btn');
-                if (confirm('Deseja excluir este produto?')) {
-                    const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
-                    if (error) alert('Erro: ' + error.message);
-                    else triggerProductSearch(); // Recarrega a lista após exclusão
-                }
-            }
+
             if (e.target.closest('.toggle-admin-btn')) {
                 const btn = e.target.closest('.toggle-admin-btn');
                 const userId = btn.dataset.userId;
@@ -457,17 +467,14 @@
             }
         });
         
-        // Adiciona listener para a tecla 'Enter'
         tabContent.addEventListener('keyup', (e) => {
             if (e.key === 'Enter') {
                 if (e.target.id === 'interaction-search-input') {
                     triggerInteractionSearch();
                 }
-                if (e.target.id === 'product-search-input') {
-                    triggerProductSearch();
-                }
             }
         });
+
         tabContent.addEventListener('change', async (e) => {
             if (e.target.classList.contains('status-select')) {
                 const interactionId = e.target.dataset.interactionId;
