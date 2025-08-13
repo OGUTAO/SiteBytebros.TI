@@ -103,21 +103,29 @@
         let allInteractions = [];
         let allClients = [];
         let currentUserId = null;
-        const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
+        // let currentAdminName = null; // Guarda o nome do admin logado
+        let currentAdminEmail = null; // Guarda o email do admin logado
+        // const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
 
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) { showLogin(); return; }
             currentUserId = session.user.id;
-            const { data: user, error } = await supabase.from('usuarios').select('is_admin').eq('id', session.user.id).single();
-            if (error || !user || !user.is_admin) {
+
+            // // Busca o perfil completo do usuário para verificar se é admin e pegar o nome
+            const { data: userProfile, error } = await supabase.from('usuarios').select('is_admin, nome_completo').eq('id', session.user.id).single();
+
+            if (error || !userProfile || !userProfile.is_admin) {
                 await supabase.auth.signOut();
                 showLogin();
             } else {
+                // Armazena os dados do admin logado
+                currentAdminName = userProfile.nome_completo;
+                currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
                 loadTabContent('v-pills-dashboard');
             }
-        }
+                }
 
         function showLogin() { loginSection.classList.remove('d-none'); dashboardSection.classList.add('d-none'); }
         function showDashboard(email) { loginSection.classList.add('d-none'); dashboardSection.classList.remove('d-none'); adminEmailDisplay.textContent = email; }
@@ -257,7 +265,19 @@
                 const color = statusColors[status] || 'bg-secondary';
                 const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
                 const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
-                const accordionItem = document.createElement('div');
+                
+                // // Cria o HTML para exibir quem modificou por último
+                let modificadoPorHtml = '';
+                if (item.status_modificado_por_nome) {
+                    modificadoPorHtml = `
+                        <div class="mt-2 border-top border-secondary pt-2">
+                            <small class="text-info">
+                                <i class="bi bi-person-check-fill me-1"></i>
+                                Última alteração por: ${item.status_modificado_por_nome}
+                            </small>
+                        </div>`;
+                }
+                // const accordionItem = document.createElement('div');
                 accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
                 accordionItem.innerHTML = `
                     <h2 class="accordion-header">
@@ -269,20 +289,30 @@
                     <div id="collapse-${item.id}" class="accordion-collapse collapse" data-bs-parent="#interactionsAccordion">
                         <div class="accordion-body border-top border-secondary">
                             <div class="row">
-                                <div class="col-md-8"><h5 class="mb-3">Mensagem do Cliente</h5><p class="bg-secondary bg-opacity-10 p-3 rounded">${item.mensagem}</p></div>
-                                <div class="col-md-4"><h5 class="mb-3">Informações de Contato</h5><ul class="list-unstyled">
-                                    <li><i class="bi bi-envelope-fill me-2"></i><a href="mailto:${item.email}" class="text-light text-decoration-none">${item.email}</a></li>
-                                    <li><i class="bi bi-telephone-fill me-2"></i>${item.telefone || 'Não informado'}</li>
-                                </ul><hr><h5 class="mb-3">Ações</h5>
-                                <select class="form-select form-select-sm bg-dark text-light border-secondary status-select mb-3" data-interaction-id="${item.id}">
-                                    <option value="null" ${!item.status ? 'selected' : ''}>-- Novo (Sem Status) --</option>
-                                    <option value="Pendente" ${status === 'Pendente' ? 'selected' : ''}>Marcar como Pendente</option>
-                                    <option value="Em Processo" ${status === 'Em Processo' ? 'selected' : ''}>Marcar como Em Processo</option>
-                                    <option value="Concluída" ${status === 'Concluída' ? 'selected' : ''}>Marcar como Concluída</option>
-                                    <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Marcar como Cancelada</option>
-                                </select>
-                                ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
-                                </div></div></div></div>`;
+                                <div class="col-md-8">
+                                    <h5 class="mb-3">Mensagem do Cliente</h5>
+                                    <p class="bg-secondary bg-opacity-10 p-3 rounded">${item.mensagem}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h5 class="mb-3">Informações de Contato</h5>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-envelope-fill me-2"></i><a href="mailto:${item.email}" class="text-light text-decoration-none">${item.email}</a></li>
+                                        <li><i class="bi bi-telephone-fill me-2"></i>${item.telefone || 'Não informado'}</li>
+                                    </ul>
+                                    <hr>
+                                    <h5 class="mb-3">Ações</h5>
+                                    <select class="form-select form-select-sm bg-dark text-light border-secondary status-select mb-3" data-interaction-id="${item.id}">
+                                        <option value="null" ${!item.status ? 'selected' : ''}>-- Novo (Sem Status) --</option>
+                                        <option value="Pendente" ${status === 'Pendente' ? 'selected' : ''}>Marcar como Pendente</option>
+                                        <option value="Em Processo" ${status === 'Em Processo' ? 'selected' : ''}>Marcar como Em Processo</option>
+                                        <option value="Concluída" ${status === 'Concluída' ? 'selected' : ''}>Marcar como Concluída</option>
+                                        <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Marcar como Cancelada</option>
+                                    </select>
+                                    ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
+                                </div>
+                            </div>
+                            ${modificadoPorHtml} </div>
+                    </div>`;
                 accordionContainer.appendChild(accordionItem);
             });
         }
@@ -372,9 +402,7 @@
                 const adminCell = document.createElement('td');
                 const actionsCell = document.createElement('td');
 
-                // Lógica para a coluna "Admin"
                 if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
-                    // Super admin vê um botão para todos, exceto para ele mesmo
                     const adminButton = document.createElement('button');
                     adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
                     adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
@@ -382,14 +410,12 @@
                     adminButton.dataset.isAdmin = c.is_admin;
                     adminCell.appendChild(adminButton);
                 } else {
-                    // Admins normais (ou o super admin vendo a si mesmo) veem um badge
                     const adminBadge = document.createElement('span');
                     adminBadge.textContent = c.is_admin ? 'Sim' : 'Não';
                     adminBadge.className = `badge p-2 ${c.is_admin ? 'bg-success' : 'bg-secondary'}`;
                     adminCell.appendChild(adminBadge);
                 }
 
-                // Lógica para a coluna "Ações"
                 if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
@@ -404,6 +430,7 @@
                 tableBody.appendChild(row);
             });
         }
+        
         function handleClientSearch(event) {
             const searchTerm = event.target.value.toLowerCase();
             const filteredClients = allClients.filter(client => 
@@ -527,12 +554,27 @@
                 const interactionId = e.target.dataset.interactionId;
                 const newStatus = e.target.value === 'null' ? null : e.target.value;
                 try {
-                    const { error } = await supabase.from('interacoes').update({ status: newStatus }).eq('id', interactionId);
+                    // Prepara os dados para a atualização, incluindo nome e email do admin
+                    const updateData = { 
+                        status: newStatus,
+                        status_modificado_por_nome: currentAdminName,
+                        status_modificado_por_email: currentAdminEmail
+                    };
+
+                    const { error } = await supabase.from('interacoes').update(updateData).eq('id', interactionId);
                     if (error) throw error;
+
+                    // Atualiza os dados locais para refletir a mudança imediatamente na UI
                     const interaction = allInteractions.find(i => String(i.id) === interactionId);
-                    if(interaction) interaction.status = newStatus;
-                    handleInteractionSearch();
-                } catch(error) { alert('Erro ao atualizar o status: ' + error.message); }
+                    if(interaction) {
+                        interaction.status = newStatus;
+                        interaction.status_modificado_por_nome = currentAdminName;
+                        interaction.status_modificado_por_email = currentAdminEmail;
+                    }
+                    handleInteractionSearch(); // Re-renderiza a lista com os dados atualizados
+                } catch(error) { 
+                    alert('Erro ao atualizar o status: ' + error.message); 
+                }
             }
             if (e.target.classList.contains('team-select')) {
                 const userId = e.target.dataset.userId;
@@ -544,8 +586,7 @@
                 } catch (error) { alert('Erro ao atualizar equipe: ' + error.message); }
             }
         });
-
-        // --- Inicialização ---
+        // // --- Inicialização ---
         checkAdminStatus();
     </script>
 </body>
