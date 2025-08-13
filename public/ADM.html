@@ -250,7 +250,7 @@
             const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
 
             const filteredData = allInteractions.filter(item => {
-                const status = item.status || 'Novo';
+                const status = item.status?.trim() || 'Novo';
                 const matchesFilter = (currentFilter === 'ativos' && (status === 'Novo' || status === 'Pendente' || status === 'Em Processo')) ||
                                       (currentFilter === 'concluidas' && status === 'Concluída') ||
                                       (currentFilter === 'canceladas' && status === 'Cancelada');
@@ -268,7 +268,7 @@
                 html = `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
             } else {
                 filteredData.forEach(item => {
-                    const status = item.status || 'Novo';
+                    const status = item.status?.trim() || 'Novo';
                     const color = statusColors[status] || 'bg-secondary';
                     const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
                     const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
