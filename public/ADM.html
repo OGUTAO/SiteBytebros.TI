@@ -18,6 +18,18 @@
         .stat-card { background-color: #343a40; border-radius: .5rem; padding: 1rem; }
         .accordion-button:not(.collapsed) { background-color: #343a40; color: #fff; }
         .badge-new { background-color: #6f42c1; color: white; } 
+
+        /* --- Estilo para o Indicador de Presença --- */
+        .presence-indicator {
+            color: #495057; /* Cinza escuro para offline */
+            font-size: 1.2em;
+            transition: color 0.3s ease;
+            line-height: 1; /* Alinha o círculo verticalmente */
+        }
+        .presence-indicator.online {
+            color: #28a745; /* Verde para online */
+            text-shadow: 0 0 6px rgba(40, 167, 69, 0.8); /* Efeito de brilho */
+        }
     </style>
 </head>
 <body>
@@ -107,6 +119,67 @@
         let currentAdminEmail = null; 
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
 
+        // --- Variáveis de Presença ---
+        let presenceChannel = null;
+        let onlineAdmins = {};
+
+        // --- Funções de Presença ---
+
+        // Atualiza a interface de todos os indicadores de presença
+        function updateAllPresenceIndicators() {
+            const indicators = document.querySelectorAll('.presence-indicator');
+            indicators.forEach(indicator => {
+                const userId = indicator.dataset.userId;
+                if (onlineAdmins[userId]) {
+                    indicator.classList.add('online');
+                    indicator.setAttribute('title', 'Online');
+                } else {
+                    indicator.classList.remove('online');
+                    indicator.setAttribute('title', 'Offline');
+                }
+            });
+        }
+
+        // Inicia a conexão com o canal de presença
+        function initializePresence(user) {
+            if (presenceChannel) {
+                supabase.removeChannel(presenceChannel);
+            }
+            presenceChannel = supabase.channel('admin-presence');
+
+            presenceChannel
+                .on('presence', { event: 'sync' }, () => {
+                    const state = presenceChannel.state();
+                    onlineAdmins = {}; // Reseta a lista local
+                    for (const id in state) {
+                        const presence = state[id][0];
+                        onlineAdmins[presence.user_id] = { name: presence.name };
+                    }
+                    updateAllPresenceIndicators(); // Atualiza a UI com a lista completa
+                })
+                .on('presence', { event: 'join' }, ({ newPresences }) => {
+                    newPresences.forEach(p => {
+                        onlineAdmins[p.user_id] = { name: p.name };
+                    });
+                    updateAllPresenceIndicators(); // Atualiza a UI quando alguém entra
+                })
+                .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+                    leftPresences.forEach(p => {
+                        delete onlineAdmins[p.user_id];
+                    });
+                    updateAllPresenceIndicators(); // Atualiza a UI quando alguém sai
+                })
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        // Informa ao canal que este usuário está online
+                        await presenceChannel.track({
+                            user_id: user.id,
+                            name: currentAdminName
+                        });
+                    }
+                });
+        }
+
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) { 
@@ -125,9 +198,10 @@
                 currentAdminName = userProfile.nome_completo;
                 currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
+                initializePresence(session.user); // Inicia a funcionalidade de presença
                 loadTabContent('v-pills-dashboard');
             }
-                }
+        }
 
         function showLogin() { 
             loginSection.classList.remove('d-none'); 
@@ -157,6 +231,12 @@
         });
 
         logoutBtn.addEventListener('click', async () => { 
+            if (presenceChannel) {
+                // Desconecta do canal de presença antes de fazer o logout
+                await presenceChannel.untrack();
+                await supabase.removeChannel(presenceChannel);
+                presenceChannel = null;
+            }
             await supabase.auth.signOut(); 
             loginError.classList.add('d-none');
             loginError.textContent = '';
@@ -498,7 +578,13 @@
                         
                         html += `
                             <div class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center p-3">
-                                <div><h6 class="mb-0">${admin.nome_completo}</h6><small class="text-muted">${admin.email}</small></div>
+                                <div>
+                                    <h6 class="mb-0 d-flex align-items-center">
+                                        <span class="presence-indicator" data-user-id="${admin.id}" title="Offline">●</span>
+                                        <span class="ms-2">${admin.nome_completo}</span>
+                                    </h6>
+                                    <small class="text-muted" style="margin-left: 21px;">${admin.email}</small>
+                                </div>
                                 ${teamDisplayElement}
                             </div>`;
                     });
@@ -507,6 +593,7 @@
             }
             html += `</div>`;
             container.innerHTML = html;
+            updateAllPresenceIndicators(); // Garante que os indicadores sejam exibidos com o status correto ao carregar a aba
         }
         
         const tabContent = document.getElementById('v-pills-tabContent');
