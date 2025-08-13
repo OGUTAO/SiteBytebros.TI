@@ -90,6 +90,12 @@ body {
     color: #0e63be; /* Use a cor que preferir. Este é o azul principal do Bootstrap */
 }
 
+/* Alinhamento para o menu do Painel de Administração */
+#v-pills-tab .nav-link {
+    justify-content: flex-start; /* Alinha o conteúdo (ícone + texto) à esquerda */
+    text-align: left; /* Garante que o texto dentro do botão também alinhe à esquerda */
+}
+
 /* Estilos para o carrossel de serviços na página inicial */
 .carousel-item-services .card-img-top {
     height: 200px;
