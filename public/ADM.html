@@ -17,7 +17,7 @@
         }
         .stat-card { background-color: #343a40; border-radius: .5rem; padding: 1rem; }
         .accordion-button:not(.collapsed) { background-color: #343a40; color: #fff; }
-        .badge-new { background-color: #6f42c1; color: white; }
+        .badge-new { background-color: #6f42c1; color: white; } /* Cor roxa para o status "Novo" */
     </style>
 </head>
 <body>
@@ -99,8 +99,6 @@
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
         let allClients = [];
-        let allProducts = [];
-        let allInteractions = [];
         let currentUserId = null;
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
 
@@ -114,7 +112,7 @@
                 showLogin();
             } else {
                 showDashboard(session.user.email);
-                await loadTabContent('v-pills-dashboard');
+                loadTabContent('v-pills-dashboard');
             }
         }
 
@@ -141,19 +139,20 @@
         document.querySelectorAll('#v-pills-tab button').forEach(tab => {
             tab.addEventListener('shown.bs.tab', (event) => {
                 const targetId = event.target.getAttribute('data-bs-target').substring(1);
-                loadTabContent(targetId);
+                const defaultFilter = targetId === 'v-pills-interactions' ? 'ativos' : null;
+                loadTabContent(targetId, defaultFilter);
             });
         });
 
-        async function loadTabContent(tabId) {
+        async function loadTabContent(tabId, filter = null, searchTerm = '') {
             const contentArea = document.getElementById(tabId);
             contentArea.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
             try {
                 switch (tabId) {
                     case 'v-pills-dashboard': await renderDashboard(contentArea); break;
-                    case 'v-pills-products': await renderProducts(contentArea); break;
+                    case 'v-pills-products': await renderProducts(contentArea, searchTerm); break;
                     case 'v-pills-news': await renderNews(contentArea); break;
-                    case 'v-pills-interactions': await renderInteractions(contentArea); break;
+                    case 'v-pills-interactions': await renderInteractions(contentArea, filter, searchTerm); break;
                     case 'v-pills-clients': await renderClients(contentArea); break;
                     case 'v-pills-team': await renderTeamDashboard(contentArea); break;
                 }
@@ -175,100 +174,89 @@
                 </div>`;
         }
 
-        async function renderProducts(container) {
+        async function renderProducts(container, searchTerm = '') {
             const { data, error } = await supabase.from('produtos').select('*').order('id');
             if (error) throw error;
-            allProducts = data;
+            
+            const normalizedSearch = searchTerm.toLowerCase();
+            const filteredData = searchTerm ? data.filter(p => 
+                p.name.toLowerCase().includes(normalizedSearch) || 
+                String(p.id).includes(normalizedSearch)
+            ) : data;
 
-            container.innerHTML = `
+            let html = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Produtos Cadastrados</h2>
-                    <input type="search" id="product-search-input" class="form-control w-50" placeholder="Buscar por Nome ou ID..." autocomplete="off">
+                    <input type="search" id="product-search-input" class="form-control w-50" placeholder="Buscar por Nome ou ID..." value="${searchTerm}" autocomplete="off">
                 </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-striped table-hover">
                         <thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
-                        <tbody id="products-table-body"></tbody>
-                    </table>
-                </div>
-                <a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>`;
+                        <tbody>`;
             
-            populateProductsTable(allProducts);
-        }
-
-        function populateProductsTable(products) {
-            const tableBody = document.getElementById('products-table-body');
-            let html = '';
-            if (products.length > 0) {
-                products.forEach(p => {
-                    html += `<tr>
-                                <td>${p.id}</td>
-                                <td>${p.name}</td>
-                                <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td>${p.quantity}</td>
-                                <td>
-                                    <a href="gerenciar-produto.html?id=${p.id}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-fill"></i></a>
-                                    <button class="btn btn-sm btn-outline-danger delete-product-btn" data-product-id="${p.id}"><i class="bi bi-trash"></i></button>
-                                </td>
-                            </tr>`;
+            if (filteredData.length > 0) {
+                filteredData.forEach(p => {
+                    html += `
+                        <tr>
+                            <td>${p.id}</td>
+                            <td>${p.name}</td>
+                            <td>${parseFloat(p.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                            <td>${p.quantity}</td>
+                            <td>
+                                <a href="gerenciar-produto.html?id=${p.id}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-fill"></i></a>
+                                <button class="btn btn-sm btn-outline-danger delete-product-btn" data-product-id="${p.id}"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>`;
                 });
             } else {
-                html = `<tr><td colspan="5" class="text-center text-muted p-4">Nenhum produto encontrado.</td></tr>`;
+                html += `<tr><td colspan="5" class="text-center text-muted p-4">Nenhum produto encontrado.</td></tr>`;
             }
-            tableBody.innerHTML = html;
+            html += `</tbody></table></div><a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>`;
+            container.innerHTML = html;
         }
         
         async function renderNews(container) {
             container.innerHTML = '<h2>Gerenciamento de Notícias (Em breve)</h2>';
         }
 
-        async function renderInteractions(container) {
+        async function renderInteractions(container, filter = 'ativos', searchTerm = '') {
             const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
             if(error) throw error;
-            allInteractions = data;
+
+            const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
             
-            container.innerHTML = `
+            const normalizedSearch = searchTerm.toLowerCase();
+            const searchedData = searchTerm ? data.filter(item =>
+                item.nome.toLowerCase().includes(normalizedSearch) ||
+                item.email.toLowerCase().includes(normalizedSearch) ||
+                (item.telefone || '').includes(normalizedSearch)
+            ) : data;
+
+            const filteredData = searchedData.filter(item => {
+                const status = item.status || 'Novo';
+                if (filter === 'ativos') return status === 'Novo' || status === 'Pendente' || status === 'Em Processo';
+                if (filter === 'concluidas') return status === 'Concluída';
+                if (filter === 'canceladas') return status === 'Cancelada';
+                return true;
+            });
+
+            let html = `
                 <h2>Orçamentos e Contatos</h2>
                 <div class="d-flex justify-content-between align-items-center my-4">
-                    <ul class="nav nav-pills" id="interactions-filter-pills">
-                        <li class="nav-item"><button class="nav-link active" data-filter="ativos">Ativos</button></li>
-                        <li class="nav-item"><button class="nav-link" data-filter="concluidas">Concluídas</button></li>
-                        <li class="nav-item"><button class="nav-link" data-filter="canceladas">Canceladas</button></li>
+                    <ul class="nav nav-pills">
+                        <li class="nav-item"><button class="nav-link ${filter === 'ativos' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'ativos')">Ativos</button></li>
+                        <li class="nav-item"><button class="nav-link ${filter === 'concluidas' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'concluidas')">Concluídas</button></li>
+                        <li class="nav-item"><button class="nav-link ${filter === 'canceladas' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'canceladas')">Canceladas</button></li>
                     </ul>
-                    <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." autocomplete="off">
+                    <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." value="${searchTerm}" autocomplete="off">
                 </div>
-                <div class="accordion" id="interactionsAccordion"></div>`;
+                <div class="accordion" id="interactionsAccordion">`;
 
-            populateInteractionsAccordion();
-        }
-
-        function populateInteractionsAccordion() {
-            const container = document.getElementById('interactionsAccordion');
-            const currentFilter = document.querySelector('#interactions-filter-pills .nav-link.active').dataset.filter;
-            const searchTerm = document.getElementById('interaction-search-input').value.toLowerCase();
-            
-            const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
-
-            const filteredData = allInteractions.filter(item => {
-                const status = item.status?.trim() || 'Novo';
-                const matchesFilter = (currentFilter === 'ativos' && (status === 'Novo' || status === 'Pendente' || status === 'Em Processo')) ||
-                                      (currentFilter === 'concluidas' && status === 'Concluída') ||
-                                      (currentFilter === 'canceladas' && status === 'Cancelada');
-
-                const matchesSearch = !searchTerm ||
-                                      item.nome.toLowerCase().includes(searchTerm) ||
-                                      item.email.toLowerCase().includes(searchTerm) ||
-                                      (item.telefone || '').includes(searchTerm);
-                
-                return matchesFilter && matchesSearch;
-            });
-            
-            let html = '';
             if (filteredData.length === 0) {
-                html = `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
+                html += `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
             } else {
-                filteredData.forEach(item => {
-                    const status = item.status?.trim() || 'Novo';
+                filteredData.forEach((item) => {
+                    const status = item.status || 'Novo';
                     const color = statusColors[status] || 'bg-secondary';
                     const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
                     const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
@@ -299,26 +287,28 @@
                                     </div></div></div></div></div>`;
                 });
             }
+            html += `</div>`;
             container.innerHTML = html;
         }
-        
+
         async function renderClients(container) {
-            const { data, error } = await supabase.from('usuarios').select('*').order('created_at');
+            const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at');
             if (error) throw error;
             allClients = data;
             
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>Clientes Cadastrados</h2>
-                    <input type="text" id="client-search" class="form-control w-50" placeholder="Buscar por Nome, Email ou Matrícula...">
+                    <input type="text" id="client-search" class="form-control w-50" placeholder="Pesquisar por nome ou email...">
                 </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-striped table-hover">
-                        <thead><tr><th>Matrícula</th><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr></thead>
                         <tbody id="clients-table-body"></tbody>
                     </table>
                 </div>`;
             populateClientTable(allClients);
+            document.getElementById('client-search').addEventListener('input', handleClientSearch);
         }
 
         function populateClientTable(clients) {
@@ -326,30 +316,49 @@
             tableBody.innerHTML = '';
             clients.forEach(c => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${c.matricula || 'N/A'}</td>
-                    <td>${c.nome_completo || 'N/A'}</td>
-                    <td>${c.email}</td>
-                    <td>${c.telefone || 'N/A'}</td>
-                    <td><button class="btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}" data-user-id="${c.id}" data-is-admin="${c.is_admin}">${c.is_admin ? 'Sim' : 'Não'}</button></td>
-                    <td><button class="btn btn-sm btn-danger delete-client-btn" data-user-id="${c.id}"><i class="bi bi-trash"></i></button></td>`;
+                const adminCell = document.createElement('td');
+                const actionsCell = document.createElement('td');
+                const adminButton = document.createElement('button');
+                adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
+                adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
+                adminButton.dataset.userId = c.id;
+                adminButton.dataset.isAdmin = c.is_admin;
+                adminCell.appendChild(adminButton);
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
+                deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteButton.dataset.userId = c.id;
+                actionsCell.appendChild(deleteButton);
+                row.innerHTML = `<td>${c.nome_completo || 'N/A'}</td><td>${c.email}</td><td>${c.telefone || 'N/A'}</td>`;
+                row.appendChild(adminCell);
+                row.appendChild(actionsCell);
                 tableBody.appendChild(row);
             });
         }
         
+        function handleClientSearch(event) {
+            const searchTerm = event.target.value.toLowerCase();
+            const filteredClients = allClients.filter(client => 
+                (client.nome_completo || '').toLowerCase().includes(searchTerm) || 
+                (client.email || '').toLowerCase().includes(searchTerm)
+            );
+            populateClientTable(filteredClients);
+        }
+
         async function renderTeamDashboard(container) {
-            const { data: admins, error: adminError } = await supabase.from('usuarios').select('id, nome_completo, email, matricula').eq('is_admin', true);
+            const { data: admins, error: adminError } = await supabase.from('usuarios').select('id, nome_completo, email').eq('is_admin', true);
             const { data: teamMembers, error: teamError } = await supabase.from('equipe_membros').select('*');
             if (adminError || teamError) throw new Error(adminError?.message || teamError?.message);
 
             const teams = { 'ByteCore Shop': [], 'ByteCore Connect': [], 'ByteCore Services': [], 'Sem Equipe': [] };
+
             admins.forEach(admin => {
                 const assignment = teamMembers.find(m => m.user_id === admin.id);
                 const teamName = assignment ? assignment.equipe : 'Sem Equipe';
                 teams[teamName] ? teams[teamName].push(admin) : teams['Sem Equipe'].push(admin);
             });
 
-            let html = `<h2>Gerenciamento de Equipe</h2><p class="text-muted">Atribua cada funcionário a uma equipe.</p><div class="row g-4 mt-2">`;
+            let html = `<h2>Gerenciamento de Equipe</h2><div class="row g-4 mt-2">`;
             for (const teamName in teams) {
                 html += `
                     <div class="col-lg-6">
@@ -358,23 +367,16 @@
                             <div class="list-group list-group-flush">`;
                 if (teams[teamName].length > 0) {
                     teams[teamName].forEach(admin => {
-                        const assignment = teamMembers.find(m => m.user_id === admin.id);
-                        const teamForAdmin = assignment ? assignment.equipe : "Nenhuma";
                         html += `
                             <div class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center p-3">
-                                <div>
-                                    <h6 class="mb-0">${admin.nome_completo} <small class="text-muted">(${admin.matricula || 'N/A'})</small></h6>
-                                    <small class="text-muted">${admin.email}</small>
-                                </div>`;
-                        if (currentUserId === SUPER_ADMIN_USER_ID) {
-                            html += `<select class="form-select form-select-sm bg-dark text-light border-secondary w-auto team-select" data-user-id="${admin.id}">
-                                        <option value="Sem Equipe" ${teamForAdmin === 'Nenhuma' ? 'selected' : ''}>Nenhuma</option>
-                                        <option value="ByteCore Shop" ${teamForAdmin === 'ByteCore Shop' ? 'selected' : ''}>ByteCore Shop</option>
-                                        <option value="ByteCore Connect" ${teamForAdmin === 'ByteCore Connect' ? 'selected' : ''}>ByteCore Connect</option>
-                                        <option value="ByteCore Services" ${teamForAdmin === 'ByteCore Services' ? 'selected' : ''}>ByteCore Services</option>
-                                    </select>`;
-                        } else { html += `<span class="badge bg-primary">${teamForAdmin}</span>`; }
-                        html += `</div>`;
+                                <div><h6 class="mb-0">${admin.nome_completo}</h6><small class="text-muted">${admin.email}</small></div>
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto team-select" data-user-id="${admin.id}">
+                                    <option value="Sem Equipe" ${!teamMembers.find(m=>m.user_id === admin.id) ? 'selected' : ''}>Nenhuma</option>
+                                    <option value="ByteCore Shop" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Shop' ? 'selected' : ''}>ByteCore Shop</option>
+                                    <option value="ByteCore Connect" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Connect' ? 'selected' : ''}>ByteCore Connect</option>
+                                    <option value="ByteCore Services" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Services' ? 'selected' : ''}>ByteCore Services</option>
+                                </select>
+                            </div>`;
                     });
                 } else { html += '<div class="list-group-item bg-dark text-muted text-center p-4">Nenhum membro nesta equipe.</div>'; }
                 html += `</div></div></div>`;
@@ -386,43 +388,51 @@
         // --- Event Listeners Globais ---
         const tabContent = document.getElementById('v-pills-tabContent');
 
-        function debounce(func, delay = 400) {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => { func.apply(this, args); }, delay);
-            };
-        }
-
-        const debouncedInteractionSearch = debounce(() => populateInteractionsAccordion());
-        const debouncedProductSearch = debounce(() => {
-            const searchTerm = document.getElementById('product-search-input').value.toLowerCase();
-            populateProductsTable(allProducts.filter(p => p.name.toLowerCase().includes(searchTerm) || String(p.id).includes(searchTerm)));
-        });
-        const debouncedClientSearch = debounce(() => {
-            const searchTerm = document.getElementById('client-search').value.toLowerCase();
-            populateClientTable(allClients.filter(c => 
-                (c.nome_completo || '').toLowerCase().includes(searchTerm) || 
-                (c.email || '').toLowerCase().includes(searchTerm) ||
-                (c.matricula || '').toLowerCase().includes(searchTerm)
-            ));
-        });
-
         tabContent.addEventListener('input', e => {
-            if (e.target.id === 'interaction-search-input') debouncedInteractionSearch();
-            if (e.target.id === 'product-search-input') debouncedProductSearch();
-            if (e.target.id === 'client-search') debouncedClientSearch();
+            const interactionSearch = e.target.closest('#interaction-search-input');
+            if (interactionSearch) {
+                const currentFilter = document.querySelector('#v-pills-tabContent .nav-link.active').textContent.toLowerCase().replace(/ô|í|ç/g, c => ({'ô':'o', 'í':'i', 'ç':'c'})[c]);
+                loadTabContent('v-pills-interactions', currentFilter, interactionSearch.value);
+            }
+            const productSearch = e.target.closest('#product-search-input');
+            if (productSearch) {
+                loadTabContent('v-pills-products', null, productSearch.value);
+            }
         });
         
         tabContent.addEventListener('click', async (e) => {
-            if (e.target.closest('#interactions-filter-pills .nav-link')) {
-                document.querySelectorAll('#interactions-filter-pills .nav-link').forEach(el => el.classList.remove('active'));
-                e.target.classList.add('active');
-                populateInteractionsAccordion();
+            if (e.target.closest('.delete-interaction-btn')) {
+                const btn = e.target.closest('.delete-interaction-btn');
+                const interactionId = btn.dataset.interactionId;
+                if (confirm('ATENÇÃO: Ação irreversível. Deseja excluir esta interação permanentemente?')) {
+                    try {
+                        const { error } = await supabase.from('interacoes').delete().eq('id', interactionId);
+                        if (error) throw error;
+                        const currentFilter = document.querySelector('#v-pills-tabContent .nav-link.active').textContent.toLowerCase().replace(/ô|í|ç/g, c => ({'ô':'o', 'í':'i', 'ç':'c'})[c]);
+                        const searchTerm = document.getElementById('interaction-search-input').value;
+                        loadTabContent('v-pills-interactions', currentFilter, searchTerm);
+                    } catch (error) { alert('Erro ao excluir: ' + error.message); }
+                }
             }
-            if (e.target.closest('.delete-interaction-btn')) { /* ... código de exclusão ... */ }
-            if (e.target.closest('.delete-product-btn')) { /* ... código de exclusão de produto ... */ }
-            if (e.target.closest('.toggle-admin-btn')) { /* ... código de alternar admin ... */ }
+            if (e.target.closest('.delete-product-btn')) {
+                const btn = e.target.closest('.delete-product-btn');
+                if (confirm('Deseja excluir este produto?')) {
+                    const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
+                    if (error) alert('Erro: ' + error.message);
+                    else loadTabContent('v-pills-products', null, document.getElementById('product-search-input').value);
+                }
+            }
+            if (e.target.closest('.toggle-admin-btn')) {
+                const btn = e.target.closest('.toggle-admin-btn');
+                const userId = btn.dataset.userId;
+                const currentlyAdmin = btn.dataset.isAdmin === 'true';
+                if (userId === SUPER_ADMIN_USER_ID) { alert('O status do Super Admin não pode ser alterado.'); return; }
+                if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
+                    const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
+                    if (error) { alert('Erro ao alterar status: ' + error.message); } 
+                    else { loadTabContent('v-pills-clients'); }
+                }
+            }
         });
 
         tabContent.addEventListener('change', async (e) => {
@@ -432,12 +442,20 @@
                 try {
                     const { error } = await supabase.from('interacoes').update({ status: newStatus }).eq('id', interactionId);
                     if (error) throw error;
-                    const updatedItem = allInteractions.find(item => item.id == interactionId);
-                    if (updatedItem) updatedItem.status = newStatus;
-                    populateInteractionsAccordion();
+                    const currentFilter = document.querySelector('#v-pills-tabContent .nav-link.active').textContent.toLowerCase().replace(/ô|í|ç/g, c => ({'ô':'o', 'í':'i', 'ç':'c'})[c]);
+                    const searchTerm = document.getElementById('interaction-search-input').value;
+                    loadTabContent('v-pills-interactions', currentFilter, searchTerm);
                 } catch(error) { alert('Erro ao atualizar o status: ' + error.message); }
             }
-            if (e.target.classList.contains('team-select')) { /* ... código de mudança de equipe ... */ }
+            if (e.target.classList.contains('team-select')) {
+                const userId = e.target.dataset.userId;
+                const newTeam = e.target.value;
+                try {
+                    if (newTeam === 'Sem Equipe') await supabase.from('equipe_membros').delete().eq('user_id', userId);
+                    else await supabase.from('equipe_membros').upsert({ user_id: userId, equipe: newTeam }, { onConflict: 'user_id' });
+                    loadTabContent('v-pills-team');
+                } catch (error) { alert('Erro ao atualizar equipe: ' + error.message); }
+            }
         });
 
         window.loadTabContent = loadTabContent;
@@ -446,4 +464,4 @@
         checkAdminStatus();
     </script>
 </body>
-</html> 
+</html>
