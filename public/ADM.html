@@ -149,7 +149,8 @@
 
             presenceChannel
                 .on('presence', { event: 'sync' }, () => {
-                    const state = presenceChannel.state();
+                    // **CORREÇÃO APLICADA AQUI**
+                    const state = presenceChannel.presenceState();
                     onlineAdmins = {}; // Reseta a lista local
                     for (const id in state) {
                         const presence = state[id][0];
