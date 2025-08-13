@@ -65,6 +65,26 @@
         </div>
     </main>
 
+    <script type="module">
+        const themeToggle = document.getElementById('theme-toggle');
+        
+        // Lógica para alternar tema claro/escuro
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+        }
+        
+        // Carregar tema salvo do localStorage
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        }
+    </script>
+
     <footer class="footer mt-auto py-3">
         <div class="container text-center">
             <p>&copy; 2025 Byte Bros.TI. Todos os direitos reservados.</p>
@@ -124,26 +144,6 @@
                 window.location.href = 'login.html';
             }
         });
-    </script>
-
-    <script type="module">
-        const themeToggle = document.getElementById('theme-toggle');
-        
-        // Lógica para alternar tema claro/escuro
-        if (themeToggle) {
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-            });
-        }
-        
-        // Carregar tema salvo do localStorage
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-bs-theme', savedTheme);
-        }
     </script>
 </body>
 </html>
