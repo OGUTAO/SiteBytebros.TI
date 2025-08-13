@@ -174,6 +174,7 @@
                 </div>`;
         }
 
+        // : Adicionado um botão de busca
         async function renderProducts(container, searchTerm = '') {
             const { data, error } = await supabase.from('produtos').select('*').order('id');
             if (error) throw error;
@@ -187,7 +188,10 @@
             let html = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Produtos Cadastrados</h2>
-                    <input type="search" id="product-search-input" class="form-control w-50" placeholder="Buscar por Nome ou ID..." value="${searchTerm}" autocomplete="off">
+                    <div class="input-group w-50">
+                        <input type="search" id="product-search-input" class="form-control" placeholder="Buscar por Nome ou ID..." value="${searchTerm}" autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="product-search-btn"><i class="bi bi-search"></i></button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-striped table-hover">
@@ -219,6 +223,7 @@
             container.innerHTML = '<h2>Gerenciamento de Notícias (Em breve)</h2>';
         }
 
+        // : Adicionado um botão de busca
         async function renderInteractions(container, filter = 'ativos', searchTerm = '') {
             const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
             if(error) throw error;
@@ -248,7 +253,10 @@
                         <li class="nav-item"><button class="nav-link ${filter === 'concluidas' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'concluidas')">Concluídas</button></li>
                         <li class="nav-item"><button class="nav-link ${filter === 'canceladas' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'canceladas')">Canceladas</button></li>
                     </ul>
-                    <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." value="${searchTerm}" autocomplete="off">
+                    <div class="input-group w-50">
+                        <input type="search" id="interaction-search-input" class="form-control" placeholder="Buscar por nome, email, telefone..." value="${searchTerm}" autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="interaction-search-btn"><i class="bi bi-search"></i></button>
+                    </div>
                 </div>
                 <div class="accordion" id="interactionsAccordion">`;
 
@@ -387,20 +395,36 @@
         
         // --- Event Listeners Globais ---
         const tabContent = document.getElementById('v-pills-tabContent');
-
-        tabContent.addEventListener('input', e => {
-            const interactionSearch = e.target.closest('#interaction-search-input');
-            if (interactionSearch) {
-                const currentFilter = document.querySelector('#v-pills-tabContent .nav-link.active').textContent.toLowerCase().replace(/ô|í|ç/g, c => ({'ô':'o', 'í':'i', 'ç':'c'})[c]);
-                loadTabContent('v-pills-interactions', currentFilter, interactionSearch.value);
-            }
-            const productSearch = e.target.closest('#product-search-input');
-            if (productSearch) {
-                loadTabContent('v-pills-products', null, productSearch.value);
-            }
-        });
         
+        // // O evento 'input' foi removido para evitar recarregamento a cada letra digitada.
+        // A lógica agora é acionada por 'click' no botão de busca ou 'keyup' (tecla Enter).
+
+        function triggerInteractionSearch() {
+            const searchInput = document.getElementById('interaction-search-input');
+            const currentFilterEl = document.querySelector('#v-pills-interactions .nav-link.active');
+            // Mapeia o texto do botão para o valor do filtro
+            const filterMap = { 'ativos': 'ativos', 'concluídas': 'concluidas', 'canceladas': 'canceladas' };
+            const currentFilter = filterMap[currentFilterEl.textContent.toLowerCase()] || 'ativos';
+            loadTabContent('v-pills-interactions', currentFilter, searchInput.value);
+        }
+
+        function triggerProductSearch() {
+            const searchInput = document.getElementById('product-search-input');
+            loadTabContent('v-pills-products', null, searchInput.value);
+        }
+
         tabContent.addEventListener('click', async (e) => {
+            // Lógica para o botão de busca de interações
+            if (e.target.closest('#interaction-search-btn')) {
+                triggerInteractionSearch();
+            }
+            
+            // Lógica para o botão de busca de produtos
+            if (e.target.closest('#product-search-btn')) {
+                triggerProductSearch();
+            }
+            
+            // Outras lógicas de clique (excluir, etc.)
             if (e.target.closest('.delete-interaction-btn')) {
                 const btn = e.target.closest('.delete-interaction-btn');
                 const interactionId = btn.dataset.interactionId;
@@ -408,9 +432,7 @@
                     try {
                         const { error } = await supabase.from('interacoes').delete().eq('id', interactionId);
                         if (error) throw error;
-                        const currentFilter = document.querySelector('#v-pills-tabContent .nav-link.active').textContent.toLowerCase().replace(/ô|í|ç/g, c => ({'ô':'o', 'í':'i', 'ç':'c'})[c]);
-                        const searchTerm = document.getElementById('interaction-search-input').value;
-                        loadTabContent('v-pills-interactions', currentFilter, searchTerm);
+                        triggerInteractionSearch(); // Recarrega a lista após exclusão
                     } catch (error) { alert('Erro ao excluir: ' + error.message); }
                 }
             }
@@ -419,7 +441,7 @@
                 if (confirm('Deseja excluir este produto?')) {
                     const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
                     if (error) alert('Erro: ' + error.message);
-                    else loadTabContent('v-pills-products', null, document.getElementById('product-search-input').value);
+                    else triggerProductSearch(); // Recarrega a lista após exclusão
                 }
             }
             if (e.target.closest('.toggle-admin-btn')) {
@@ -434,7 +456,18 @@
                 }
             }
         });
-
+        
+        // Adiciona listener para a tecla 'Enter'
+        tabContent.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                if (e.target.id === 'interaction-search-input') {
+                    triggerInteractionSearch();
+                }
+                if (e.target.id === 'product-search-input') {
+                    triggerProductSearch();
+                }
+            }
+        });
         tabContent.addEventListener('change', async (e) => {
             if (e.target.classList.contains('status-select')) {
                 const interactionId = e.target.dataset.interactionId;
@@ -442,9 +475,7 @@
                 try {
                     const { error } = await supabase.from('interacoes').update({ status: newStatus }).eq('id', interactionId);
                     if (error) throw error;
-                    const currentFilter = document.querySelector('#v-pills-tabContent .nav-link.active').textContent.toLowerCase().replace(/ô|í|ç/g, c => ({'ô':'o', 'í':'i', 'ç':'c'})[c]);
-                    const searchTerm = document.getElementById('interaction-search-input').value;
-                    loadTabContent('v-pills-interactions', currentFilter, searchTerm);
+                    triggerInteractionSearch();
                 } catch(error) { alert('Erro ao atualizar o status: ' + error.message); }
             }
             if (e.target.classList.contains('team-select')) {
