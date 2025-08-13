@@ -91,12 +91,12 @@
                 </div>
                 <div class="col-lg-10">
                     <div class="tab-content card bg-dark text-light border-secondary p-4" id="v-pills-tabContent">
-                        <div class="tab-pane fade show active" id="v-pills-dashboard"></div>
-                        <div class="tab-pane fade" id="v-pills-products"></div>
-                        <div class="tab-pane fade" id="v-pills-news"></div>
-                        <div class="tab-pane fade" id="v-pills-interactions"></div>
-                        <div class="tab-pane fade" id="v-pills-clients"></div>
-                        <div class="tab-pane fade" id="v-pills-team"></div>
+                        <div class="tab-pane fade show active" id="v-pills-dashboard" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="v-pills-products" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="v-pills-news" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="v-pills-interactions" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="v-pills-clients" role="tabpanel"></div>
+                        <div class="tab-pane fade" id="v-pills-team" role="tabpanel"></div>
                     </div>
                 </div>
             </div>
@@ -134,7 +134,7 @@
             toast.show();
         }
 
-        // --- Nova Função para Inicializar o Realtime ---
+        // --- CORREÇÃO: Função para Inicializar o Realtime ---
         function initializeRealtimeSubscriptions() {
             if (realtimeChannel) {
                 supabase.removeChannel(realtimeChannel);
@@ -143,36 +143,62 @@
             realtimeChannel = supabase.channel('admin-dashboard-realtime')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'interacoes' }, (payload) => {
                     showToast('Nova Interação', `Recebida uma nova solicitação de ${payload.new.nome}.`);
-                    allInteractions.unshift(payload.new); // Adiciona no início do array
-                    if(document.getElementById('v-pills-interactions').classList.contains('active')) {
+                    allInteractions.unshift(payload.new);
+                    // Atualiza a UI se a aba estiver visível
+                    if (document.getElementById('v-pills-interactions').classList.contains('show')) {
                         handleInteractionSearch();
                     }
-                    if(document.getElementById('v-pills-dashboard').classList.contains('active')) {
-                        renderDashboard(document.getElementById('v-pills-dashboard'));
-                    }
+                    // Atualiza o dashboard
+                    renderDashboard(document.getElementById('v-pills-dashboard'));
                 })
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'usuarios' }, (payload) => {
                     showToast('Novo Cliente', `Usuário ${payload.new.nome_completo || payload.new.email} acaba de se cadastrar.`);
                     allClients.push(payload.new);
-                    if(document.getElementById('v-pills-clients').classList.contains('active')) {
+                     // Atualiza a UI se a aba estiver visível
+                    if (document.getElementById('v-pills-clients').classList.contains('show')) {
                         populateClientTable(allClients);
                     }
-                     if(document.getElementById('v-pills-dashboard').classList.contains('active')) {
-                        renderDashboard(document.getElementById('v-pills-dashboard'));
-                    }
+                     // Atualiza o dashboard
+                    renderDashboard(document.getElementById('v-pills-dashboard'));
                 })
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'produtos' }, (payload) => {
-                    const updatedProduct = payload.new;
-                    const productIndex = allProducts.findIndex(p => p.id === updatedProduct.id);
-                    if (productIndex > -1) {
-                        const oldProduct = allProducts[productIndex];
-                        if (oldProduct.quantity !== updatedProduct.quantity) {
-                             showToast('Estoque Atualizado', `O estoque de "${updatedProduct.name}" foi alterado para ${updatedProduct.quantity}.`);
-                        }
-                        allProducts[productIndex] = updatedProduct;
-                        if(document.getElementById('v-pills-products').classList.contains('active')) {
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'produtos' }, (payload) => {
+                    let product, productIndex, message;
+                    
+                    switch(payload.eventType) {
+                        case 'INSERT':
+                            product = payload.new;
+                            message = `Novo produto "${product.name}" foi adicionado.`;
+                            allProducts.push(product);
+                            break;
+                        case 'UPDATE':
+                            product = payload.new;
+                            productIndex = allProducts.findIndex(p => p.id === product.id);
+                            if (productIndex > -1) {
+                                message = `O produto "${product.name}" foi atualizado.`;
+                                if (allProducts[productIndex].quantity !== product.quantity) {
+                                    message = `Estoque de "${product.name}" alterado para ${product.quantity}.`;
+                                }
+                                allProducts[productIndex] = product;
+                            }
+                            break;
+                        case 'DELETE':
+                            product = payload.old;
+                            productIndex = allProducts.findIndex(p => p.id === product.id);
+                            if (productIndex > -1) {
+                                message = `O produto "${product.name}" foi removido.`;
+                                allProducts.splice(productIndex, 1);
+                            }
+                            break;
+                    }
+
+                    if (message) {
+                        showToast('Produtos', message);
+                        // Atualiza a UI se a aba estiver visível
+                        if (document.getElementById('v-pills-products').classList.contains('show')) {
                             populateProductTable(allProducts);
                         }
+                         // Atualiza o dashboard
+                        renderDashboard(document.getElementById('v-pills-dashboard'));
                     }
                 })
                 .subscribe();
@@ -196,10 +222,25 @@
                 currentAdminName = userProfile.nome_completo;
                 currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
+                await loadAllInitialData(); // Carrega todos os dados iniciais
                 loadTabContent('v-pills-dashboard');
                 initializeRealtimeSubscriptions(); // Inicia o realtime após login
             }
         }
+        
+        // CORREÇÃO: Carrega todos os dados de uma vez ao logar
+        async function loadAllInitialData() {
+            const [products, interactions, clients] = await Promise.all([
+                supabase.from('produtos').select('*').order('id'),
+                supabase.from('interacoes').select('*').order('criado_em', { ascending: false }),
+                supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin, created_at').order('created_at')
+            ]);
+            
+            if(products.data) allProducts = products.data;
+            if(interactions.data) allInteractions = interactions.data;
+            if(clients.data) allClients = clients.data;
+        }
+
 
         function showLogin() {
             loginSection.classList.remove('d-none');
@@ -236,6 +277,10 @@
             await supabase.auth.signOut();
             loginError.classList.add('d-none');
             loginError.textContent = '';
+            // Limpa os dados locais ao sair
+            allProducts = [];
+            allInteractions = [];
+            allClients = [];
             showLogin();
         });
 
@@ -264,9 +309,11 @@
         // --- Funções de Renderização das Abas (sem alterações no conteúdo, apenas na forma de obter dados) ---
 
         async function renderDashboard(container) {
-            const { count: clientCount } = await supabase.from('usuarios').select('*', { count: 'exact', head: true });
-            const { count: productCount } = await supabase.from('produtos').select('*', { count: 'exact', head: true });
-            const { count: interactionCount } = await supabase.from('interacoes').select('*', { count: 'exact', head: true });
+            if (!container) return;
+            const clientCount = allClients.length;
+            const productCount = allProducts.length;
+            const interactionCount = allInteractions.length;
+
             container.innerHTML = `
                 <h2>Dashboard</h2>
                 <div class="row g-4 mt-2">
@@ -310,12 +357,6 @@
         }
 
         async function renderProducts(container) {
-            if (allProducts.length === 0) {
-                const { data, error } = await supabase.from('produtos').select('*').order('id');
-                if (error) throw error;
-                allProducts = data;
-            }
-           
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Produtos Cadastrados</h2>
@@ -442,12 +483,6 @@
         }
 
         async function renderInteractions(container, initialFilter = 'ativos') {
-             if (allInteractions.length === 0) {
-                const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
-                if(error) throw error;
-                allInteractions = data;
-            }
-           
             container.innerHTML = `
                 <h2>Orçamentos e Contatos</h2>
                 <div class="d-flex justify-content-between align-items-center my-4">
@@ -474,12 +509,6 @@
         }
 
         async function renderClients(container) {
-            if (allClients.length === 0) {
-                const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin, created_at').order('created_at');
-                if (error) throw error;
-                allClients = data;
-            }
-           
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>Clientes Cadastrados</h2>
@@ -606,9 +635,6 @@
                     const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
                     if (error) {
                         alert('Erro: ' + error.message);
-                    } else {
-                        allProducts = allProducts.filter(p => String(p.id) !== btn.dataset.productId);
-                        populateProductTable(allProducts);
                     }
                 }
             }
@@ -621,7 +647,7 @@
                         const { data, error } = await supabase.auth.admin.deleteUser(userId);
                         if (error) throw error;
                         alert('Usuário excluído com sucesso.');
-                        loadTabContent('v-pills-clients');
+                        // A atualização será via realtime
                     } catch (error) {
                         alert(`Erro ao excluir usuário: ${error.message}. Esta ação pode exigir privilégios elevados.`);
                     }
@@ -635,8 +661,7 @@
                     try {
                         const { error } = await supabase.from('interacoes').delete().eq('id', interactionId);
                         if (error) throw error;
-                        allInteractions = allInteractions.filter(i => String(i.id) !== interactionId);
-                        handleInteractionSearch();
+                        // A atualização será via realtime
                     } catch (error) { alert('Erro ao excluir: ' + error.message); }
                 }
             }
@@ -648,7 +673,12 @@
                 if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
                     const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
                     if (error) { alert('Erro ao alterar status: ' + error.message); }
-                    else { loadTabContent('v-pills-clients'); }
+                    else { 
+                        // Atualiza localmente e recarrega a tabela para refletir a mudança no botão
+                         const client = allClients.find(c => c.id === userId);
+                         if(client) client.is_admin = !currentlyAdmin;
+                         populateClientTable(allClients);
+                    }
                 }
             }
         });
