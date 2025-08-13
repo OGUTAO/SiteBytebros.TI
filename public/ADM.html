@@ -99,8 +99,8 @@
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
         
-        // : Adicionada variável para guardar produtos
         let allProducts = []; 
+        let allInteractions = [];
         let allClients = [];
         let currentUserId = null;
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
@@ -142,20 +142,19 @@
         document.querySelectorAll('#v-pills-tab button').forEach(tab => {
             tab.addEventListener('shown.bs.tab', (event) => {
                 const targetId = event.target.getAttribute('data-bs-target').substring(1);
-                const defaultFilter = targetId === 'v-pills-interactions' ? 'ativos' : null;
-                loadTabContent(targetId, defaultFilter);
+                loadTabContent(targetId);
             });
         });
 
-        async function loadTabContent(tabId, filter = null, searchTerm = '') {
+        async function loadTabContent(tabId) {
             const contentArea = document.getElementById(tabId);
             contentArea.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
             try {
                 switch (tabId) {
                     case 'v-pills-dashboard': await renderDashboard(contentArea); break;
-                    case 'v-pills-products': await renderProducts(contentArea); break; // Removido searchTerm daqui
+                    case 'v-pills-products': await renderProducts(contentArea); break;
                     case 'v-pills-news': await renderNews(contentArea); break;
-                    case 'v-pills-interactions': await renderInteractions(contentArea, filter, searchTerm); break;
+                    case 'v-pills-interactions': await renderInteractions(contentArea); break;
                     case 'v-pills-clients': await renderClients(contentArea); break;
                     case 'v-pills-team': await renderTeamDashboard(contentArea); break;
                 }
@@ -177,10 +176,9 @@
                 </div>`;
         }
 
-        // // Função que RENDERIZA A LISTA DE PRODUTOS na tabela
         function populateProductTable(products) {
             const tableBody = document.getElementById('products-table-body');
-            tableBody.innerHTML = ''; // Limpa a tabela
+            tableBody.innerHTML = ''; 
             
             if (products.length > 0) {
                 products.forEach(p => {
@@ -201,7 +199,6 @@
             }
         }
 
-        // Função que FILTRA A LISTA DE PRODUTOS baseada na busca
         function handleProductSearch(event) {
             const searchTerm = event.target.value.toLowerCase();
             const filteredProducts = allProducts.filter(p =>
@@ -211,14 +208,11 @@
             populateProductTable(filteredProducts);
         }
 
-        // Função que MONTA O PAINEL DE PRODUTOS
         async function renderProducts(container) {
-            // 1. Pega os dados do Supabase
             const { data, error } = await supabase.from('produtos').select('*').order('id');
             if (error) throw error;
-            allProducts = data; // 2. Armazena os dados na variável global
+            allProducts = data;
             
-            // 3. Monta o HTML estático (título, busca, estrutura da tabela)
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Produtos Cadastrados</h2>
@@ -233,10 +227,7 @@
                 <a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>
             `;
 
-            // 4. Adiciona o listener de evento 'input' para a busca em tempo real
             document.getElementById('product-search-input').addEventListener('input', handleProductSearch);
-
-            // 5. Popula a tabela com todos os produtos pela primeira vez
             populateProductTable(allProducts);
         }
         
@@ -244,79 +235,111 @@
             container.innerHTML = '<h2>Gerenciamento de Notícias (Em breve)</h2>';
         }
         
-        async function renderInteractions(container, filter = 'ativos', searchTerm = '') {
+        function getActiveInteractionFilter() {
+            const activePill = document.querySelector('#v-pills-interactions .nav-link.active');
+            if (!activePill) return 'ativos';
+            const filterMap = { 'ativos': 'ativos', 'concluídas': 'concluidas', 'canceladas': 'canceladas' };
+            return filterMap[activePill.textContent.toLowerCase()] || 'ativos';
+        }
+
+        function populateInteractionsAccordion(interactions) {
+            const accordionContainer = document.getElementById('interactionsAccordion');
+            accordionContainer.innerHTML = '';
+            const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
+
+            if (interactions.length === 0) {
+                accordionContainer.innerHTML = `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
+                return;
+            }
+
+            interactions.forEach((item) => {
+                const status = item.status || 'Novo';
+                const color = statusColors[status] || 'bg-secondary';
+                const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
+                const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
+                const accordionItem = document.createElement('div');
+                accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
+                accordionItem.innerHTML = `
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-dark text-light d-flex" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${item.id}">
+                            <div class="flex-grow-1 d-flex align-items-center"><span class="badge ${color} me-3" style="width: 110px;">${status}</span><span class="me-3 fw-bold">${item.nome}</span> - <span class="ms-2">${interactionType}</span></div>
+                            <span class="text-muted small">${createdDate}</span>
+                        </button>
+                    </h2>
+                    <div id="collapse-${item.id}" class="accordion-collapse collapse" data-bs-parent="#interactionsAccordion">
+                        <div class="accordion-body border-top border-secondary">
+                            <div class="row">
+                                <div class="col-md-8"><h5 class="mb-3">Mensagem do Cliente</h5><p class="bg-secondary bg-opacity-10 p-3 rounded">${item.mensagem}</p></div>
+                                <div class="col-md-4"><h5 class="mb-3">Informações de Contato</h5><ul class="list-unstyled">
+                                    <li><i class="bi bi-envelope-fill me-2"></i><a href="mailto:${item.email}" class="text-light text-decoration-none">${item.email}</a></li>
+                                    <li><i class="bi bi-telephone-fill me-2"></i>${item.telefone || 'Não informado'}</li>
+                                </ul><hr><h5 class="mb-3">Ações</h5>
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary status-select mb-3" data-interaction-id="${item.id}">
+                                    <option value="null" ${!item.status ? 'selected' : ''}>-- Novo (Sem Status) --</option>
+                                    <option value="Pendente" ${status === 'Pendente' ? 'selected' : ''}>Marcar como Pendente</option>
+                                    <option value="Em Processo" ${status === 'Em Processo' ? 'selected' : ''}>Marcar como Em Processo</option>
+                                    <option value="Concluída" ${status === 'Concluída' ? 'selected' : ''}>Marcar como Concluída</option>
+                                    <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Marcar como Cancelada</option>
+                                </select>
+                                ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
+                                </div></div></div></div>`;
+                accordionContainer.appendChild(accordionItem);
+            });
+        }
+        
+        function handleInteractionSearch() {
+            const searchTerm = document.getElementById('interaction-search-input').value.toLowerCase();
+            const currentFilter = getActiveInteractionFilter();
+            
+            const filteredData = allInteractions.filter(item => {
+                const status = item.status || 'Novo';
+                let matchesFilter = false;
+                if (currentFilter === 'ativos') matchesFilter = ['Novo', 'Pendente', 'Em Processo'].includes(status);
+                else if (currentFilter === 'concluidas') matchesFilter = status === 'Concluída';
+                else if (currentFilter === 'canceladas') matchesFilter = status === 'Cancelada';
+
+                if (!matchesFilter) return false;
+
+                const matchesSearch = searchTerm ? (
+                    item.nome.toLowerCase().includes(searchTerm) ||
+                    item.email.toLowerCase().includes(searchTerm) ||
+                    (item.telefone || '').includes(searchTerm)
+                ) : true;
+
+                return matchesSearch;
+            });
+            
+            populateInteractionsAccordion(filteredData);
+        }
+
+        async function renderInteractions(container, initialFilter = 'ativos') {
             const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
             if(error) throw error;
-
-            const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
+            allInteractions = data;
             
-            const normalizedSearch = searchTerm.toLowerCase();
-            const searchedData = searchTerm ? data.filter(item =>
-                item.nome.toLowerCase().includes(normalizedSearch) ||
-                item.email.toLowerCase().includes(normalizedSearch) ||
-                (item.telefone || '').includes(normalizedSearch)
-            ) : data;
-
-            const filteredData = searchedData.filter(item => {
-                const status = item.status || 'Novo';
-                if (filter === 'ativos') return status === 'Novo' || status === 'Pendente' || status === 'Em Processo';
-                if (filter === 'concluidas') return status === 'Concluída';
-                if (filter === 'canceladas') return status === 'Cancelada';
-                return true;
-            });
-
-            let html = `
+            container.innerHTML = `
                 <h2>Orçamentos e Contatos</h2>
                 <div class="d-flex justify-content-between align-items-center my-4">
                     <ul class="nav nav-pills">
-                        <li class="nav-item"><button class="nav-link ${filter === 'ativos' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'ativos')">Ativos</button></li>
-                        <li class="nav-item"><button class="nav-link ${filter === 'concluidas' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'concluidas')">Concluídas</button></li>
-                        <li class="nav-item"><button class="nav-link ${filter === 'canceladas' ? 'active' : ''}" onclick="window.loadTabContent('v-pills-interactions', 'canceladas')">Canceladas</button></li>
+                        <li class="nav-item"><button class="nav-link ${initialFilter === 'ativos' ? 'active' : ''}" data-filter="ativos">Ativos</button></li>
+                        <li class="nav-item"><button class="nav-link ${initialFilter === 'concluidas' ? 'active' : ''}" data-filter="concluidas">Concluídas</button></li>
+                        <li class="nav-item"><button class="nav-link ${initialFilter === 'canceladas' ? 'active' : ''}" data-filter="canceladas">Canceladas</button></li>
                     </ul>
-                    <div class="input-group w-50">
-                        <input type="search" id="interaction-search-input" class="form-control" placeholder="Buscar por nome, email, telefone..." value="${searchTerm}" autocomplete="off">
-                        <button class="btn btn-outline-secondary" type="button" id="interaction-search-btn"><i class="bi bi-search"></i></button>
-                    </div>
+                    <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." autocomplete="off">
                 </div>
-                <div class="accordion" id="interactionsAccordion">`;
+                <div class="accordion" id="interactionsAccordion"></div>`;
 
-            if (filteredData.length === 0) {
-                html += `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
-            } else {
-                filteredData.forEach((item) => {
-                    const status = item.status || 'Novo';
-                    const color = statusColors[status] || 'bg-secondary';
-                    const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
-                    const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
-                    html += `
-                    <div class="accordion-item bg-dark text-light border-secondary">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed bg-dark text-light d-flex" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${item.id}">
-                                <div class="flex-grow-1 d-flex align-items-center"><span class="badge ${color} me-3" style="width: 110px;">${status}</span><span class="me-3 fw-bold">${item.nome}</span> - <span class="ms-2">${interactionType}</span></div>
-                                <span class="text-muted small">${createdDate}</span>
-                            </button>
-                        </h2>
-                        <div id="collapse-${item.id}" class="accordion-collapse collapse" data-bs-parent="#interactionsAccordion">
-                            <div class="accordion-body border-top border-secondary">
-                                <div class="row">
-                                    <div class="col-md-8"><h5 class="mb-3">Mensagem do Cliente</h5><p class="bg-secondary bg-opacity-10 p-3 rounded">${item.mensagem}</p></div>
-                                    <div class="col-md-4"><h5 class="mb-3">Informações de Contato</h5><ul class="list-unstyled">
-                                        <li><i class="bi bi-envelope-fill me-2"></i><a href="mailto:${item.email}" class="text-light text-decoration-none">${item.email}</a></li>
-                                        <li><i class="bi bi-telephone-fill me-2"></i>${item.telefone || 'Não informado'}</li>
-                                    </ul><hr><h5 class="mb-3">Ações</h5>
-                                    <select class="form-select form-select-sm bg-dark text-light border-secondary status-select mb-3" data-interaction-id="${item.id}">
-                                        <option value="null" ${!item.status ? 'selected' : ''}>-- Novo (Sem Status) --</option>
-                                        <option value="Pendente" ${status === 'Pendente' ? 'selected' : ''}>Marcar como Pendente</option>
-                                        <option value="Em Processo" ${status === 'Em Processo' ? 'selected' : ''}>Marcar como Em Processo</option>
-                                        <option value="Concluída" ${status === 'Concluída' ? 'selected' : ''}>Marcar como Concluída</option>
-                                        <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Marcar como Cancelada</option>
-                                    </select>
-                                    ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
-                                    </div></div></div></div></div>`;
+            container.querySelectorAll('#v-pills-interactions .nav-pills .nav-link').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    const currentActive = container.querySelector('#v-pills-interactions .nav-pills .nav-link.active');
+                    if(currentActive) currentActive.classList.remove('active');
+                    e.target.classList.add('active');
+                    handleInteractionSearch();
                 });
-            }
-            html += `</div>`;
-            container.innerHTML = html;
+            });
+
+            document.getElementById('interaction-search-input').addEventListener('input', handleInteractionSearch);
+            handleInteractionSearch();
         }
 
         async function renderClients(container) {
@@ -386,6 +409,9 @@
                 teams[teamName] ? teams[teamName].push(admin) : teams['Sem Equipe'].push(admin);
             });
 
+            // Verifica se o usuário logado é o Super Admin
+            const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
+
             let html = `<h2>Gerenciamento de Equipe</h2><div class="row g-4 mt-2">`;
             for (const teamName in teams) {
                 html += `
@@ -398,7 +424,7 @@
                         html += `
                             <div class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center p-3">
                                 <div><h6 class="mb-0">${admin.nome_completo}</h6><small class="text-muted">${admin.email}</small></div>
-                                <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto team-select" data-user-id="${admin.id}">
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto team-select" data-user-id="${admin.id}" ${!isSuperAdmin ? 'disabled' : ''}>
                                     <option value="Sem Equipe" ${!teamMembers.find(m=>m.user_id === admin.id) ? 'selected' : ''}>Nenhuma</option>
                                     <option value="ByteCore Shop" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Shop' ? 'selected' : ''}>ByteCore Shop</option>
                                     <option value="ByteCore Connect" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Connect' ? 'selected' : ''}>ByteCore Connect</option>
@@ -412,30 +438,17 @@
             html += `</div>`;
             container.innerHTML = html;
         }
-        
-        // --- Event Listeners Globais ---
+        // // --- Event Listeners Globais ---
         const tabContent = document.getElementById('v-pills-tabContent');
         
-        function triggerInteractionSearch() {
-            const searchInput = document.getElementById('interaction-search-input');
-            const currentFilterEl = document.querySelector('#v-pills-interactions .nav-link.active');
-            const filterMap = { 'ativos': 'ativos', 'concluídas': 'concluidas', 'canceladas': 'canceladas' };
-            const currentFilter = filterMap[currentFilterEl.textContent.toLowerCase()] || 'ativos';
-            loadTabContent('v-pills-interactions', currentFilter, searchInput.value);
-        }
-
         tabContent.addEventListener('click', async (e) => {
-            if (e.target.closest('#interaction-search-btn')) {
-                triggerInteractionSearch();
-            }
-            
             if (e.target.closest('.delete-product-btn')) {
                 const btn = e.target.closest('.delete-product-btn');
                 if (confirm('Deseja excluir este produto?')) {
                     const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
-                    if (error) alert('Erro: ' + error.message);
-                    else {
-                        // Remove from the local array and re-render the table
+                    if (error) {
+                        alert('Erro: ' + error.message);
+                    } else {
                         allProducts = allProducts.filter(p => String(p.id) !== btn.dataset.productId);
                         populateProductTable(allProducts);
                     }
@@ -449,7 +462,8 @@
                     try {
                         const { error } = await supabase.from('interacoes').delete().eq('id', interactionId);
                         if (error) throw error;
-                        triggerInteractionSearch();
+                        allInteractions = allInteractions.filter(i => String(i.id) !== interactionId);
+                        handleInteractionSearch();
                     } catch (error) { alert('Erro ao excluir: ' + error.message); }
                 }
             }
@@ -467,14 +481,6 @@
             }
         });
         
-        tabContent.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') {
-                if (e.target.id === 'interaction-search-input') {
-                    triggerInteractionSearch();
-                }
-            }
-        });
-
         tabContent.addEventListener('change', async (e) => {
             if (e.target.classList.contains('status-select')) {
                 const interactionId = e.target.dataset.interactionId;
@@ -482,7 +488,9 @@
                 try {
                     const { error } = await supabase.from('interacoes').update({ status: newStatus }).eq('id', interactionId);
                     if (error) throw error;
-                    triggerInteractionSearch();
+                    const interaction = allInteractions.find(i => String(i.id) === interactionId);
+                    if(interaction) interaction.status = newStatus;
+                    handleInteractionSearch();
                 } catch(error) { alert('Erro ao atualizar o status: ' + error.message); }
             }
             if (e.target.classList.contains('team-select')) {
@@ -495,8 +503,6 @@
                 } catch (error) { alert('Erro ao atualizar equipe: ' + error.message); }
             }
         });
-
-        window.loadTabContent = loadTabContent;
 
         // --- Inicialização ---
         checkAdminStatus();
