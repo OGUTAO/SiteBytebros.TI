@@ -341,7 +341,7 @@
             document.getElementById('interaction-search-input').addEventListener('input', handleInteractionSearch);
             handleInteractionSearch();
         }
-        
+
         async function renderClients(container) {
             const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at');
             if (error) throw error;
@@ -369,10 +369,12 @@
 
             clients.forEach(c => {
                 const row = document.createElement('tr');
-                
-                // Célula de Admin (Condicional)
                 const adminCell = document.createElement('td');
+                const actionsCell = document.createElement('td');
+
+                // Lógica para a coluna "Admin"
                 if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
+                    // Super admin vê um botão para todos, exceto para ele mesmo
                     const adminButton = document.createElement('button');
                     adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
                     adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
@@ -380,14 +382,14 @@
                     adminButton.dataset.isAdmin = c.is_admin;
                     adminCell.appendChild(adminButton);
                 } else {
+                    // Admins normais (ou o super admin vendo a si mesmo) veem um badge
                     const adminBadge = document.createElement('span');
                     adminBadge.textContent = c.is_admin ? 'Sim' : 'Não';
                     adminBadge.className = `badge p-2 ${c.is_admin ? 'bg-success' : 'bg-secondary'}`;
                     adminCell.appendChild(adminBadge);
                 }
 
-                // Célula de Ações (Condicional)
-                const actionsCell = document.createElement('td');
+                // Lógica para a coluna "Ações"
                 if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
@@ -423,7 +425,7 @@
                 const teamName = assignment ? assignment.equipe : 'Sem Equipe';
                 teams[teamName] ? teams[teamName].push(admin) : teams['Sem Equipe'].push(admin);
             });
-
+            
             const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
 
             let html = `<h2>Gerenciamento de Equipe</h2><div class="row g-4 mt-2">`;
@@ -463,7 +465,7 @@
             html += `</div>`;
             container.innerHTML = html;
         }
-        // // --- Event Listeners Globais ---
+        
         const tabContent = document.getElementById('v-pills-tabContent');
         
         tabContent.addEventListener('click', async (e) => {
@@ -479,7 +481,6 @@
                     }
                 }
             }
-            
             if (e.target.closest('.delete-client-btn')) {
                 const btn = e.target.closest('.delete-client-btn');
                 const userId = btn.dataset.userId;
