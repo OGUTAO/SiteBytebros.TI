@@ -152,69 +152,77 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script type="module">
-        import { supabase } from './js/supabase-client.js';
+    import { supabase } from './js/supabase-client.js';
 
-        const themeToggle = document.getElementById('theme-toggle');
+    const themeToggle = document.getElementById('theme-toggle');
 
-        // --- LÓGICA DA UI (CABEÇALHO E TEMA) ---
-        async function updateUserUI() {
-            const { data: { session } } = await supabase.auth.getSession();
-            const authButtons = document.getElementById('auth-buttons');
-            const userProfile = document.getElementById('user-profile');
-            const userNameSpan = document.getElementById('user-name');
+    // --- LÓGICA DA UI (CABEÇALHO E TEMA) ---
+    async function updateUserUI() {
+        const { data: { session } } = await supabase.auth.getSession();
+        const authButtons = document.getElementById('auth-buttons');
+        const userProfile = document.getElementById('user-profile');
+        const userNameSpan = document.getElementById('user-name');
 
-            if (session) { // Usuário está logado
-                if(authButtons) authButtons.classList.add('d-none');
-                if(userProfile) userProfile.classList.remove('d-none');
-                if(userNameSpan) {
-                    // Pega o nome do metadata do usuário salvo durante o cadastro
-                    userNameSpan.textContent = session.user.user_metadata.nome_completo || session.user.email;
-                }
-            } else { // Usuário não está logado
-                if(authButtons) authButtons.classList.remove('d-none');
-                if(userProfile) userProfile.classList.add('d-none');
+        if (session) { // Usuário está logado
+            if(authButtons) authButtons.classList.add('d-none');
+            if(userProfile) userProfile.classList.remove('d-none');
+            if(userNameSpan) {
+                // Pega o nome do metadata do usuário salvo durante o cadastro
+                userNameSpan.textContent = session.user.user_metadata.nome_completo || session.user.email;
             }
+        } else { // Usuário não está logado
+            if(authButtons) authButtons.classList.remove('d-none');
+            if(userProfile) userProfile.classList.add('d-none');
         }
+    }
 
-        async function logout() {
-            await supabase.auth.signOut();
-            // A UI será atualizada automaticamente pelo listener onAuthStateChange
+    // --- FUNÇÃO DE LOGOUT ATUALIZADA ---
+    async function logout() {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            // Informa ao usuário sobre o erro de rede
+            console.error('Erro ao fazer logout:', error);
+            alert('Ocorreu um erro ao tentar sair. Verifique sua conexão com a internet ou desative extensões de navegador (como AdBlockers) e tente novamente.');
+        } else {
+            // Força o redirecionamento para a página inicial para recarregar a UI no estado deslogado.
+            window.location.href = 'index.html';
         }
-        
-        // Lógica para alternar tema claro/escuro
-        if (themeToggle) {
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-            });
-        }
-        
-        // Carregar tema salvo do localStorage
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-bs-theme', savedTheme);
-        }
-
-        // Adiciona o evento de clique ao botão de logout
-        const logoutButton = document.getElementById('logout-button');
-        if(logoutButton) {
-            logoutButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                logout();
-            });
-        }
-
-        // Ouve por mudanças no estado de autenticação (login, logout, etc.)
-        // e atualiza a UI automaticamente.
-        supabase.auth.onAuthStateChange((_event, session) => {
-            updateUserUI();
+    }
+    
+    // Lógica para alternar tema claro/escuro
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
         });
+    }
+    
+    // Carregar tema salvo do localStorage
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    }
 
-        // Verificação inicial da UI ao carregar a página
+    // Adiciona o evento de clique ao botão de logout
+    const logoutButton = document.getElementById('logout-button');
+    if(logoutButton) {
+        logoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+    }
+
+    // Ouve por mudanças no estado de autenticação (login, logout, etc.)
+    // e atualiza a UI automaticamente.
+    supabase.auth.onAuthStateChange((_event, session) => {
         updateUserUI();
-    </script>
+    });
+
+    // Verificação inicial da UI ao carregar a página
+    updateUserUI();
+</script>
     
 </body>
 </html>
