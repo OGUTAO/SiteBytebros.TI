@@ -341,7 +341,7 @@
             document.getElementById('interaction-search-input').addEventListener('input', handleInteractionSearch);
             handleInteractionSearch();
         }
-
+        
         async function renderClients(container) {
             const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at');
             if (error) throw error;
@@ -372,7 +372,7 @@
                 
                 // Célula de Admin (Condicional)
                 const adminCell = document.createElement('td');
-                if (isSuperAdmin) {
+                if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
                     const adminButton = document.createElement('button');
                     adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
                     adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
@@ -386,19 +386,16 @@
                     adminCell.appendChild(adminBadge);
                 }
 
-                // Célula de Ações
+                // Célula de Ações (Condicional)
                 const actionsCell = document.createElement('td');
-                const deleteButton = document.createElement('button');
-                deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
-                deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
-                deleteButton.dataset.userId = c.id;
-                // Apenas o Super Admin pode excluir outros usuários
-                if (!isSuperAdmin || c.id === SUPER_ADMIN_USER_ID) {
-                    deleteButton.disabled = true;
+                if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
+                    deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+                    deleteButton.dataset.userId = c.id;
+                    actionsCell.appendChild(deleteButton);
                 }
-                actionsCell.appendChild(deleteButton);
-
-                // Montagem da Linha
+                
                 row.innerHTML = `<td>${c.nome_completo || 'N/A'}</td><td>${c.email}</td><td>${c.telefone || 'N/A'}</td>`;
                 row.appendChild(adminCell);
                 row.appendChild(actionsCell);
@@ -451,7 +448,7 @@
                                 </select>`;
                         } else {
                             const teamNameForAdmin = assignment ? assignment.equipe : 'Sem Equipe';
-                            teamDisplayElement = `<span class="badge bg-light text-dark p-2">${teamNameForAdmin}</span>`;
+                            teamDisplayElement = `<span class="badge bg-secondary p-2" style="font-size: 0.85em;">${teamNameForAdmin}</span>`;
                         }
                         
                         html += `
@@ -483,25 +480,13 @@
                 }
             }
             
-            // : Adicionada verificação de Super Admin para exclusão de clientes
             if (e.target.closest('.delete-client-btn')) {
                 const btn = e.target.closest('.delete-client-btn');
                 const userId = btn.dataset.userId;
 
-                if (currentUserId !== SUPER_ADMIN_USER_ID) {
-                    alert('Apenas o Super Administrador pode excluir usuários.');
-                    return;
-                }
-                if (userId === SUPER_ADMIN_USER_ID) {
-                    alert('O Super Administrador não pode ser excluído.');
-                    return;
-                }
-                
                 if (confirm('ATENÇÃO: Ação irreversível! Deseja excluir este usuário permanentemente?')) {
                      try {
-                        // Esta é uma chamada de Admin que precisa ser executada do lado do servidor ou com uma chave de serviço.
-                        // AVISO: A linha abaixo pode não funcionar se as políticas de RLS não permitirem.
-                        const { error } = await supabase.auth.admin.deleteUser(userId);
+                        const { data, error } = await supabase.auth.admin.deleteUser(userId);
                         if (error) throw error;
                         alert('Usuário excluído com sucesso.');
                         loadTabContent('v-pills-clients');
@@ -528,7 +513,6 @@
                 const btn = e.target.closest('.toggle-admin-btn');
                 const userId = btn.dataset.userId;
                 const currentlyAdmin = btn.dataset.isAdmin === 'true';
-                if (userId === SUPER_ADMIN_USER_ID) { alert('O status do Super Admin não pode ser alterado.'); return; }
                 if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
                     const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
                     if (error) { alert('Erro ao alterar status: ' + error.message); } 
