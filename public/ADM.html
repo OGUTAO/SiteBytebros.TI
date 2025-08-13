@@ -17,7 +17,7 @@
         }
         .stat-card { background-color: #343a40; border-radius: .5rem; padding: 1rem; }
         .accordion-button:not(.collapsed) { background-color: #343a40; color: #fff; }
-        .badge-new { background-color: #6f42c1; color: white; } /* Cor roxa para o status "Novo" */
+        .badge-new { background-color: #6f42c1; color: white; } 
     </style>
 </head>
 <body>
@@ -103,16 +103,16 @@
         let allInteractions = [];
         let allClients = [];
         let currentUserId = null;
-        // let currentAdminName = null; // Guarda o nome do admin logado
-        let currentAdminEmail = null; // Guarda o email do admin logado
-        // const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
+        let currentAdminName = null; 
+        let currentAdminEmail = null; 
+        const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
 
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) { showLogin(); return; }
             currentUserId = session.user.id;
 
-            // // Busca o perfil completo do usuário para verificar se é admin e pegar o nome
+            // Busca o perfil completo do usuário para verificar se é admin e pegar o nome
             const { data: userProfile, error } = await supabase.from('usuarios').select('is_admin, nome_completo').eq('id', session.user.id).single();
 
             if (error || !userProfile || !userProfile.is_admin) {
@@ -266,7 +266,7 @@
                 const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
                 const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
                 
-                // // Cria o HTML para exibir quem modificou por último
+                // Cria o HTML para exibir quem modificou por último
                 let modificadoPorHtml = '';
                 if (item.status_modificado_por_nome) {
                     modificadoPorHtml = `
@@ -277,7 +277,7 @@
                             </small>
                         </div>`;
                 }
-                // const accordionItem = document.createElement('div');
+                const accordionItem = document.createElement('div');
                 accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
                 accordionItem.innerHTML = `
                     <h2 class="accordion-header">
@@ -571,7 +571,7 @@
                         interaction.status_modificado_por_nome = currentAdminName;
                         interaction.status_modificado_por_email = currentAdminEmail;
                     }
-                    handleInteractionSearch(); // Re-renderiza a lista com os dados atualizados
+                    handleInteractionSearch(); 
                 } catch(error) { 
                     alert('Erro ao atualizar o status: ' + error.message); 
                 }
