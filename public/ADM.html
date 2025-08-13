@@ -409,7 +409,6 @@
                 teams[teamName] ? teams[teamName].push(admin) : teams['Sem Equipe'].push(admin);
             });
 
-            // Verifica se o usuário logado é o Super Admin
             const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
 
             let html = `<h2>Gerenciamento de Equipe</h2><div class="row g-4 mt-2">`;
@@ -421,15 +420,26 @@
                             <div class="list-group list-group-flush">`;
                 if (teams[teamName].length > 0) {
                     teams[teamName].forEach(admin => {
+                        const assignment = teamMembers.find(m => m.user_id === admin.id);
+                        let teamDisplayElement = '';
+
+                        if (isSuperAdmin) {
+                            teamDisplayElement = `
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto team-select" data-user-id="${admin.id}">
+                                    <option value="Sem Equipe" ${!assignment ? 'selected' : ''}>Nenhuma</option>
+                                    <option value="ByteCore Shop" ${assignment?.equipe === 'ByteCore Shop' ? 'selected' : ''}>ByteCore Shop</option>
+                                    <option value="ByteCore Connect" ${assignment?.equipe === 'ByteCore Connect' ? 'selected' : ''}>ByteCore Connect</option>
+                                    <option value="ByteCore Services" ${assignment?.equipe === 'ByteCore Services' ? 'selected' : ''}>ByteCore Services</option>
+                                </select>`;
+                        } else {
+                            const teamNameForAdmin = assignment ? assignment.equipe : 'Sem Equipe';
+                            teamDisplayElement = `<span class="badge bg-light text-dark p-2">${teamNameForAdmin}</span>`;
+                        }
+                        
                         html += `
                             <div class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center p-3">
                                 <div><h6 class="mb-0">${admin.nome_completo}</h6><small class="text-muted">${admin.email}</small></div>
-                                <select class="form-select form-select-sm bg-dark text-light border-secondary w-auto team-select" data-user-id="${admin.id}" ${!isSuperAdmin ? 'disabled' : ''}>
-                                    <option value="Sem Equipe" ${!teamMembers.find(m=>m.user_id === admin.id) ? 'selected' : ''}>Nenhuma</option>
-                                    <option value="ByteCore Shop" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Shop' ? 'selected' : ''}>ByteCore Shop</option>
-                                    <option value="ByteCore Connect" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Connect' ? 'selected' : ''}>ByteCore Connect</option>
-                                    <option value="ByteCore Services" ${teamMembers.find(m=>m.user_id === admin.id)?.equipe === 'ByteCore Services' ? 'selected' : ''}>ByteCore Services</option>
-                                </select>
+                                ${teamDisplayElement}
                             </div>`;
                     });
                 } else { html += '<div class="list-group-item bg-dark text-muted text-center p-4">Nenhum membro nesta equipe.</div>'; }
