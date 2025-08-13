@@ -11,33 +11,16 @@
         body { background-color: #212529; }
         #admin-login-section { min-height: 100vh; }
         #v-pills-tab .nav-link {
-            justify-content: flex-start;
+            justify-content: flex-start; 
             text-align: left;
             cursor: pointer;
         }
         .stat-card { background-color: #343a40; border-radius: .5rem; padding: 1rem; }
         .accordion-button:not(.collapsed) { background-color: #343a40; color: #fff; }
-        .badge-new { background-color: #6f42c1; color: white; }
-        .toast-container {
-            z-index: 1100; /* Garante que o toast fique sobre outros elementos */
-        }
+        .badge-new { background-color: #6f42c1; color: white; } 
     </style>
 </head>
 <body>
-
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="realtime-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header">
-                <i class="bi bi-bell-fill me-2"></i>
-                <strong class="me-auto" id="toast-title">Nova Notificação</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body" id="toast-body">
-                Nova informação recebida.
-            </div>
-        </div>
-    </div>
-
 
     <div id="admin-login-section" class="d-flex align-items-center justify-content-center">
         <div class="form-container bg-dark text-light p-4 rounded-3 shadow" style="max-width: 400px;">
@@ -102,9 +85,9 @@
             </div>
         </div>
     </div>
-   
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-   
+    
     <script type="module">
         import { supabase } from './js/supabase-client.js';
 
@@ -115,74 +98,20 @@
         const logoutBtn = document.getElementById('admin-logout-btn');
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
-        const toastEl = document.getElementById('realtime-toast');
-        const toast = new bootstrap.Toast(toastEl);
-       
-        let allProducts = [];
+        
+        let allProducts = []; 
         let allInteractions = [];
         let allClients = [];
         let currentUserId = null;
-        let currentAdminName = null;
-        let currentAdminEmail = null;
-        let realtimeChannel = null;
+        let currentAdminName = null; 
+        let currentAdminEmail = null; 
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
-
-        // --- Nova Função de Notificação ---
-        function showToast(title, body) {
-            document.getElementById('toast-title').textContent = title;
-            document.getElementById('toast-body').textContent = body;
-            toast.show();
-        }
-
-        // --- Nova Função para Inicializar o Realtime ---
-        function initializeRealtimeSubscriptions() {
-            if (realtimeChannel) {
-                supabase.removeChannel(realtimeChannel);
-            }
-           
-            realtimeChannel = supabase.channel('admin-dashboard-realtime')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'interacoes' }, (payload) => {
-                    showToast('Nova Interação', `Recebida uma nova solicitação de ${payload.new.nome}.`);
-                    allInteractions.unshift(payload.new); // Adiciona no início do array
-                    if(document.getElementById('v-pills-interactions').classList.contains('active')) {
-                        handleInteractionSearch();
-                    }
-                    if(document.getElementById('v-pills-dashboard').classList.contains('active')) {
-                        renderDashboard(document.getElementById('v-pills-dashboard'));
-                    }
-                })
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'usuarios' }, (payload) => {
-                    showToast('Novo Cliente', `Usuário ${payload.new.nome_completo || payload.new.email} acaba de se cadastrar.`);
-                    allClients.push(payload.new);
-                    if(document.getElementById('v-pills-clients').classList.contains('active')) {
-                        populateClientTable(allClients);
-                    }
-                     if(document.getElementById('v-pills-dashboard').classList.contains('active')) {
-                        renderDashboard(document.getElementById('v-pills-dashboard'));
-                    }
-                })
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'produtos' }, (payload) => {
-                    const updatedProduct = payload.new;
-                    const productIndex = allProducts.findIndex(p => p.id === updatedProduct.id);
-                    if (productIndex > -1) {
-                        const oldProduct = allProducts[productIndex];
-                        if (oldProduct.quantity !== updatedProduct.quantity) {
-                             showToast('Estoque Atualizado', `O estoque de "${updatedProduct.name}" foi alterado para ${updatedProduct.quantity}.`);
-                        }
-                        allProducts[productIndex] = updatedProduct;
-                        if(document.getElementById('v-pills-products').classList.contains('active')) {
-                            populateProductTable(allProducts);
-                        }
-                    }
-                })
-                .subscribe();
-        }
 
         async function checkAdminStatus() {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                showLogin();
-                return;
+            if (!session) { 
+                showLogin(); 
+                return; 
             }
             currentUserId = session.user.id;
 
@@ -197,23 +126,18 @@
                 currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
                 loadTabContent('v-pills-dashboard');
-                initializeRealtimeSubscriptions(); // Inicia o realtime após login
             }
+                }
+
+        function showLogin() { 
+            loginSection.classList.remove('d-none'); 
+            dashboardSection.classList.add('d-none'); 
         }
 
-        function showLogin() {
-            loginSection.classList.remove('d-none');
-            dashboardSection.classList.add('d-none');
-             if (realtimeChannel) {
-                supabase.removeChannel(realtimeChannel); // Para o realtime no logout
-                realtimeChannel = null;
-            }
-        }
-
-        function showDashboard(email) {
-            loginSection.classList.add('d-none');
-            dashboardSection.classList.remove('d-none');
-            adminEmailDisplay.textContent = email;
+        function showDashboard(email) { 
+            loginSection.classList.add('d-none'); 
+            dashboardSection.classList.remove('d-none'); 
+            adminEmailDisplay.textContent = email; 
         }
 
         loginForm.addEventListener('submit', async (e) => {
@@ -227,16 +151,16 @@
                 loginError.classList.remove('d-none');
                 btn.disabled = false;
                 btn.innerHTML = 'Entrar';
-            } else {
-                await checkAdminStatus();
+            } else { 
+                await checkAdminStatus(); 
             }
         });
 
-        logoutBtn.addEventListener('click', async () => {
-            await supabase.auth.signOut();
+        logoutBtn.addEventListener('click', async () => { 
+            await supabase.auth.signOut(); 
             loginError.classList.add('d-none');
             loginError.textContent = '';
-            showLogin();
+            showLogin(); 
         });
 
         document.querySelectorAll('#v-pills-tab button').forEach(tab => {
@@ -260,8 +184,8 @@
                 }
             } catch (err) { contentArea.innerHTML = `<div class="alert alert-danger">${err.message}</div>`; }
         }
-       
-        // --- Funções de Renderização das Abas (sem alterações no conteúdo, apenas na forma de obter dados) ---
+        
+        // --- Funções de Renderização das Abas ---
 
         async function renderDashboard(container) {
             const { count: clientCount } = await supabase.from('usuarios').select('*', { count: 'exact', head: true });
@@ -278,9 +202,8 @@
 
         function populateProductTable(products) {
             const tableBody = document.getElementById('products-table-body');
-            if(!tableBody) return;
-            tableBody.innerHTML = '';
-           
+            tableBody.innerHTML = ''; 
+            
             if (products.length > 0) {
                 products.forEach(p => {
                     const row = document.createElement('tr');
@@ -310,12 +233,10 @@
         }
 
         async function renderProducts(container) {
-            if (allProducts.length === 0) {
-                const { data, error } = await supabase.from('produtos').select('*').order('id');
-                if (error) throw error;
-                allProducts = data;
-            }
-           
+            const { data, error } = await supabase.from('produtos').select('*').order('id');
+            if (error) throw error;
+            allProducts = data;
+            
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Produtos Cadastrados</h2>
@@ -333,11 +254,11 @@
             document.getElementById('product-search-input').addEventListener('input', handleProductSearch);
             populateProductTable(allProducts);
         }
-       
+        
         async function renderNews(container) {
             container.innerHTML = '<h2>Gerenciamento de Notícias (Em breve)</h2>';
         }
-       
+        
         function getActiveInteractionFilter() {
             const activePill = document.querySelector('#v-pills-interactions .nav-link.active');
             if (!activePill) return 'ativos';
@@ -347,7 +268,6 @@
 
         function populateInteractionsAccordion(interactions) {
             const accordionContainer = document.getElementById('interactionsAccordion');
-            if(!accordionContainer) return;
             accordionContainer.innerHTML = '';
             const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
 
@@ -361,7 +281,7 @@
                 const color = statusColors[status] || 'bg-secondary';
                 const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
                 const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
-               
+                
                 let modificadoPorHtml = '';
                 if (item.status_modificado_por_nome) {
                     modificadoPorHtml = `
@@ -406,20 +326,17 @@
                                     ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
                                 </div>
                             </div>
-                            ${modificadoPorHtml}
+                            ${modificadoPorHtml} 
                         </div>
                     </div>`;
                 accordionContainer.appendChild(accordionItem);
             });
         }
-       
+        
         function handleInteractionSearch() {
-            const searchInput = document.getElementById('interaction-search-input');
-            if(!searchInput) return;
-
-            const searchTerm = searchInput.value.toLowerCase();
+            const searchTerm = document.getElementById('interaction-search-input').value.toLowerCase();
             const currentFilter = getActiveInteractionFilter();
-           
+            
             const filteredData = allInteractions.filter(item => {
                 const status = item.status || 'Novo';
                 let matchesFilter = false;
@@ -437,17 +354,15 @@
 
                 return matchesSearch;
             });
-           
+            
             populateInteractionsAccordion(filteredData);
         }
 
         async function renderInteractions(container, initialFilter = 'ativos') {
-             if (allInteractions.length === 0) {
-                const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
-                if(error) throw error;
-                allInteractions = data;
-            }
-           
+            const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
+            if(error) throw error;
+            allInteractions = data;
+            
             container.innerHTML = `
                 <h2>Orçamentos e Contatos</h2>
                 <div class="d-flex justify-content-between align-items-center my-4">
@@ -474,12 +389,10 @@
         }
 
         async function renderClients(container) {
-            if (allClients.length === 0) {
-                const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin, created_at').order('created_at');
-                if (error) throw error;
-                allClients = data;
-            }
-           
+            const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at');
+            if (error) throw error;
+            allClients = data;
+            
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h2>Clientes Cadastrados</h2>
@@ -497,7 +410,6 @@
 
         function populateClientTable(clients) {
             const tableBody = document.getElementById('clients-table-body');
-            if(!tableBody) return;
             tableBody.innerHTML = '';
             const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
 
@@ -527,18 +439,18 @@
                     deleteButton.dataset.userId = c.id;
                     actionsCell.appendChild(deleteButton);
                 }
-               
+                
                 row.innerHTML = `<td>${c.nome_completo || 'N/A'}</td><td>${c.email}</td><td>${c.telefone || 'N/A'}</td>`;
                 row.appendChild(adminCell);
                 row.appendChild(actionsCell);
                 tableBody.appendChild(row);
             });
         }
-       
+        
         function handleClientSearch(event) {
             const searchTerm = event.target.value.toLowerCase();
-            const filteredClients = allClients.filter(client =>
-                (client.nome_completo || '').toLowerCase().includes(searchTerm) ||
+            const filteredClients = allClients.filter(client => 
+                (client.nome_completo || '').toLowerCase().includes(searchTerm) || 
                 (client.email || '').toLowerCase().includes(searchTerm)
             );
             populateClientTable(filteredClients);
@@ -556,7 +468,7 @@
                 const teamName = assignment ? assignment.equipe : 'Sem Equipe';
                 teams[teamName] ? teams[teamName].push(admin) : teams['Sem Equipe'].push(admin);
             });
-           
+            
             const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
 
             let html = `<h2>Gerenciamento de Equipe</h2><div class="row g-4 mt-2">`;
@@ -583,7 +495,7 @@
                             const teamNameForAdmin = assignment ? assignment.equipe : 'Sem Equipe';
                             teamDisplayElement = `<span class="badge bg-secondary p-2" style="font-size: 0.85em;">${teamNameForAdmin}</span>`;
                         }
-                       
+                        
                         html += `
                             <div class="list-group-item bg-dark text-light d-flex justify-content-between align-items-center p-3">
                                 <div><h6 class="mb-0">${admin.nome_completo}</h6><small class="text-muted">${admin.email}</small></div>
@@ -596,9 +508,9 @@
             html += `</div>`;
             container.innerHTML = html;
         }
-       
+        
         const tabContent = document.getElementById('v-pills-tabContent');
-       
+        
         tabContent.addEventListener('click', async (e) => {
             if (e.target.closest('.delete-product-btn')) {
                 const btn = e.target.closest('.delete-product-btn');
@@ -647,18 +559,18 @@
                 const currentlyAdmin = btn.dataset.isAdmin === 'true';
                 if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
                     const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
-                    if (error) { alert('Erro ao alterar status: ' + error.message); }
+                    if (error) { alert('Erro ao alterar status: ' + error.message); } 
                     else { loadTabContent('v-pills-clients'); }
                 }
             }
         });
-       
+        
         tabContent.addEventListener('change', async (e) => {
             if (e.target.classList.contains('status-select')) {
                 const interactionId = e.target.dataset.interactionId;
                 const newStatus = e.target.value === 'null' ? null : e.target.value;
                 try {
-                    const updateData = {
+                    const updateData = { 
                         status: newStatus,
                         status_modificado_por_nome: currentAdminName,
                         status_modificado_por_email: currentAdminEmail
@@ -673,9 +585,9 @@
                         interaction.status_modificado_por_nome = currentAdminName;
                         interaction.status_modificado_por_email = currentAdminEmail;
                     }
-                    handleInteractionSearch();
-                } catch(error) {
-                    alert('Erro ao atualizar o status: ' + error.message);
+                    handleInteractionSearch(); 
+                } catch(error) { 
+                    alert('Erro ao atualizar o status: ' + error.message); 
                 }
             }
             if (e.target.classList.contains('team-select')) {
