@@ -43,40 +43,68 @@
             <div class="col-lg-4">
                 <div class="card shadow-sm">
                     <div class="card-header">
-                        <h5 class="my-0">Resumo do Pedido</h5>
+                        <h5 class="my-0">Finalizar Pedido</h5>
                     </div>
                     <div class="card-body">
+                        <form id="form-entrega" class="needs-validation" novalidate>
+                            <h6 class="mb-3">Endereço de Entrega</h6>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="cep" class="form-label">CEP</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="cep" placeholder="00000-000" required>
+                                        <button id="buscar-cep-btn" class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+                                    </div>
+                                    <div class="invalid-feedback">CEP é obrigatório.</div>
+                                </div>
+                                <div class="col-12">
+                                    <label for="endereco" class="form-label">Endereço</label>
+                                    <input type="text" class="form-control" id="endereco" placeholder="Rua, Avenida..." required>
+                                    <div class="invalid-feedback">Endereço é obrigatório.</div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label for="numero" class="form-label">Número</label>
+                                    <input type="text" class="form-control" id="numero" required>
+                                    <div class="invalid-feedback">Número é obrigatório.</div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label for="complemento" class="form-label">Complemento</label>
+                                    <input type="text" class="form-control" id="complemento" placeholder="Apto, Bloco...">
+                                </div>
+                                <div class="col-12">
+                                    <label for="referencia" class="form-label">Ponto de Referência</label>
+                                    <input type="text" class="form-control" id="referencia">
+                                </div>
+                                <div class="col-sm-8">
+                                    <label for="cidade" class="form-label">Cidade</label>
+                                    <input type="text" class="form-control" id="cidade" required>
+                                    <div class="invalid-feedback">Cidade é obrigatória.</div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="uf" class="form-label">UF</label>
+                                    <input type="text" class="form-control" id="uf" maxlength="2" required>
+                                    <div class="invalid-feedback">UF é obrigatório.</div>
+                                </div>
+                            </div>
+                        </form>
+                        <hr>
                         <div id="resumo-carrinho">
                             <ul class="list-group list-group-flush">
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                     Subtotal
                                     <span id="valor-subtotal">R$ 0,00</span>
                                 </li>
-                                <li class="list-group-item">
-                                    <label for="endereco-input" class="form-label">Endereço de Entrega</label>
-                                    <textarea id="endereco-input" class="form-control form-control-sm" rows="2" placeholder="Rua, Número, Bairro, Cidade/UF"></textarea>
-                                </li>
-                                <li class="list-group-item">
-                                    <label for="cep-destino" class="form-label">Calcular Frete</label>
-                                    <div class="input-group">
-                                        <input type="text" id="cep-destino" class="form-control form-control-sm" placeholder="Seu CEP">
-                                        <button id="calcular-frete-btn" class="btn btn-outline-secondary btn-sm" type="button">Calcular</button>
-                                    </div>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Frete
-                                    <span id="valor-frete">R$ 0,00</span>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center fw-bold fs-5">
+                                <li class="list-group-item d-flex justify-content-between align-items-center fw-bold fs-5 px-0">
                                     Total
                                     <span id="valor-total">R$ 0,00</span>
                                 </li>
                             </ul>
                         </div>
                         <div class="d-grid mt-3">
-                            <a href="pagamento.html" id="checkout-btn" class="btn btn-primary btn-lg disabled">
-                                Ir para Pagamento
-                            </a>
+                            <button id="finalizar-compra-btn" class="btn btn-primary btn-lg">
+                                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                Finalizar Compra
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -92,5 +120,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="js/main.js"></script>
-    <script type="module" src="js/carrinho.js"></script> </body>
+    <script type="module" src="js/carrinho.js"></script> 
+</body>
 </html>

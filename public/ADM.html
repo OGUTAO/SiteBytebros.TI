@@ -21,14 +21,50 @@
 
         /* --- Estilo para o Indicador de Presença --- */
         .presence-indicator {
-            color: #495057; /* Cinza escuro para offline */
+            color: #495057;
             font-size: 1.2em;
             transition: color 0.3s ease;
-            line-height: 1; /* Alinha o círculo verticalmente */
+            line-height: 1;
         }
         .presence-indicator.online {
-            color: #28a745; /* Verde para online */
-            text-shadow: 0 0 6px rgba(40, 167, 69, 0.8); /* Efeito de brilho */
+            color: #28a745;
+            text-shadow: 0 0 6px rgba(40, 167, 69, 0.8);
+        }
+
+        /* --- Estilos para a Tabela de Pedidos --- */
+        .fixed-table-layout {
+            table-layout: fixed;
+            width: 100%;
+        }
+        .fixed-table-layout th,
+        .fixed-table-layout td {
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+        
+        /* NOVO: Estilo profissional para pedidos pendentes com borda */
+        .order-pending td:first-child {
+            border-left: 4px solid #ffc107; /* Amarelo do Bootstrap */
+        }
+
+        /* NOVO: Estilo para a linha de detalhes expansível */
+        .details-row > td {
+            padding: 0 !important;
+            border: 0;
+            background-color: #2c3034; /* Cor de fundo para o conteúdo do collapse */
+        }
+        .details-content {
+            padding: 1.5rem;
+        }
+        .details-content strong {
+            color: #adb5bd;
+        }
+        .details-content h5 {
+            color: #ffc107; /* Cor de destaque para os títulos */
+        }
+        .details-content .list-group-item {
+            background-color: #343a40;
+            border-color: #495057;
         }
     </style>
 </head>
@@ -130,7 +166,7 @@
     <script type="module">
         import { supabase } from './js/supabase-client.js';
 
-        // --- Variáveis Globais e Autenticação ---
+        // --- Variáveis Globais ---
         const loginSection = document.getElementById('admin-login-section');
         const dashboardSection = document.getElementById('admin-dashboard');
         const loginForm = document.getElementById('admin-login-form');
@@ -138,11 +174,11 @@
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
         
-        // VARIÁVEIS DO MODAL ADICIONADAS
         const refusalModalEl = document.getElementById('refusalModal');
         const refusalModal = new bootstrap.Modal(refusalModalEl);
         const confirmRefusalBtn = document.getElementById('confirm-refusal-btn');
 
+        let allOrders = [];
         let allProducts = []; 
         let allInteractions = [];
         let allClients = [];
@@ -151,11 +187,9 @@
         let currentAdminEmail = null; 
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
 
-        // --- Variáveis de Presença ---
         let presenceChannel = null;
         let onlineAdmins = {};
 
-        // --- Funções de Presença ---
         function updateAllPresenceIndicators() {
             const indicators = document.querySelectorAll('.presence-indicator');
             indicators.forEach(indicator => {
@@ -283,7 +317,6 @@
             try {
                 switch (tabId) {
                     case 'v-pills-dashboard': await renderDashboard(contentArea); break;
-                    // CASO DE PEDIDOS ADICIONADO
                     case 'v-pills-orders': await renderOrders(contentArea); break;
                     case 'v-pills-products': await renderProducts(contentArea); break;
                     case 'v-pills-news': await renderNews(contentArea); break;
@@ -294,8 +327,6 @@
             } catch (err) { contentArea.innerHTML = `<div class="alert alert-danger">${err.message}</div>`; }
         }
         
-        // --- Funções de Renderização das Abas ---
-
         async function renderDashboard(container) {
             const { count: clientCount } = await supabase.from('usuarios').select('*', { count: 'exact', head: true });
             const { count: productCount } = await supabase.from('produtos').select('*', { count: 'exact', head: true });
@@ -309,98 +340,251 @@
                 </div>`;
         }
 
-        // --- FUNÇÕES DE PEDIDOS ADICIONADAS ---
+        // --- SEÇÃO DE PEDIDOS (TOTALMENTE MODIFICADA) ---
         async function renderOrders(container) {
-            container.innerHTML = `<h2>Pedidos da Loja</h2><div class="accordion mt-4" id="ordersAccordion"></div>`;
-            const accordionContainer = document.getElementById('ordersAccordion');
-
-            const { data: orders, error } = await supabase.from('pedidos')
-                .select(`*, usuario:usuarios(nome_completo, email)`)
+            container.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"></div></div>`;
+            
+            const { data, error } = await supabase.from('pedidos')
+                .select(`*, usuario:usuarios(nome_completo, email, telefone)`)
                 .order('criado_em', { ascending: false });
 
-            if (error) { accordionContainer.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
-            if (!orders || orders.length === 0) { accordionContainer.innerHTML = '<p class="text-muted text-center">Nenhum pedido encontrado.</p>'; return; }
+            if (error) {
+                container.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                return;
+            }
+            allOrders = data;
+
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Pedidos da Loja</h2>
+                    <input type="search" id="order-search-input" class="form-control w-50" placeholder="Buscar por Cliente, Email, Telefone ou ID do Pedido..." autocomplete="off">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover fixed-table-layout">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;"></th>
+                                <th style="width: 30%;">Cliente</th>
+                                <th style="width: 15%;" class="text-end">Valor Total</th>
+                                <th style="width: 15%;" class="text-center">Data</th>
+                                <th style="width: 20%;" class="text-center">Status</th>
+                                <th style="width: 15%;" class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            `;
             
-            accordionContainer.innerHTML = '';
+            document.getElementById('order-search-input').addEventListener('input', handleOrderSearch);
+            populateOrdersTable(allOrders);
+        }
+
+        async function populateOrdersTable(orders) {
+            const tableBody = document.getElementById('orders-table-body');
+            const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
+
+            if (!tableBody) return;
+
+            if (!orders || orders.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">Nenhum pedido encontrado.</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = '';
             for (const order of orders) {
                 const { data: items } = await supabase.from('itens_pedido').select(`*, produto:produtos(name)`).eq('pedido_id', order.id);
-
-                const statusColors = { 'Pendente': 'bg-warning text-dark', 'Aceito': 'bg-success', 'Recusado': 'bg-danger' };
-                const badgeColor = statusColors[order.status] || 'bg-secondary';
+                
                 const createdDate = new Date(order.criado_em).toLocaleString('pt-BR');
 
+                const deleteButtonHtml = isSuperAdmin
+                    ? `<button class="btn btn-sm btn-danger delete-order-btn" data-order-id="${order.id}" title="Excluir Pedido"><i class="bi bi-trash"></i></button>`
+                    : '';
+                
                 const itemsHtml = items && items.length > 0
-                    ? items.map(i => `<li>${i.quantidade}x ${i.produto?.name || 'Produto indisponível'} - ${parseFloat(i.valor_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</li>`).join('')
-                    : '<li>Nenhum item encontrado para este pedido.</li>';
+                    ? items.map(i => `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                          <span>${i.quantidade}x ${i.produto?.name || 'Produto indisponível'}</span>
+                                          <span class="badge bg-primary rounded-pill">${parseFloat(i.valor_unitario * i.quantidade).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                      </li>`).join('')
+                    : '<li class="list-group-item">Nenhum item encontrado.</li>';
 
-                const accordionItem = document.createElement('div');
-                accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
-                accordionItem.innerHTML = `
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-order-${order.id}">
-                            <div class="d-flex w-100 justify-content-between align-items-center pe-3 flex-wrap">
-                                <span>Pedido #${order.id} - <strong>${order.usuario?.nome_completo || 'Cliente Excluído'}</strong></span>
-                                <span class="badge ${badgeColor} mx-2">${order.status}</span>
-                                <span class="text-muted small">${createdDate}</span>
-                            </div>
+                const mainRow = document.createElement('tr');
+                if (order.status === 'Pendente') {
+                    mainRow.classList.add('order-pending');
+                }
+                mainRow.dataset.orderId = order.id;
+
+                mainRow.innerHTML = `
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#details-${order.id}">
+                            <i class="bi bi-chevron-down"></i>
                         </button>
-                    </h2>
-                    <div id="collapse-order-${order.id}" class="accordion-collapse collapse" data-bs-parent="#ordersAccordion">
-                        <div class="accordion-body border-top border-secondary">
-                            <div class="row g-4">
-                                <div class="col-md-7">
-                                    <h5>Itens do Pedido:</h5>
-                                    <ul>${itemsHtml}</ul>
-                                    <hr>
-                                    <strong>Total: ${parseFloat(order.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-                                </div>
-                                <div class="col-md-5">
-                                    <h5>Detalhes do Cliente:</h5>
-                                    <p class="mb-1"><strong>Nome:</strong> ${order.usuario?.nome_completo || 'N/A'}</p>
-                                    <p class="mb-1"><strong>Email:</strong> ${order.usuario?.email || 'N/A'}</p>
-                                    <p class="mb-1"><strong>Endereço:</strong> ${order.endereco_entrega || 'N/A'}</p>
-                                    <p><strong>Pagamento:</strong> ${order.forma_pagamento || 'N/A'}</p>
-                                    ${order.status === 'Recusado' ? `<p class="mb-1 text-danger"><strong>Motivo:</strong> ${order.motivo_recusa}</p>` : ''}
+                    </td>
+                    <td>
+                        <strong>${order.usuario?.nome_completo || 'Cliente Excluído'}</strong><br>
+                        <small class="text-muted">ID do Pedido: ${order.id}</small>
+                    </td>
+                    <td class="text-end">${parseFloat(order.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                    <td class="text-center"><small>${createdDate}</small></td>
+                    <td class="text-center">
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary status-order-select" data-order-id="${order.id}" data-customer-email="${order.usuario?.email}">
+                            <option value="Pendente" ${order.status === 'Pendente' ? 'selected' : ''}>Pendente</option>
+                            <option value="Aceito" ${order.status === 'Aceito' ? 'selected' : ''}>Aceito</option>
+                            <option value="Enviado" ${order.status === 'Enviado' ? 'selected' : ''}>Enviado</option>
+                            <option value="Entregue" ${order.status === 'Entregue' ? 'selected' : ''}>Entregue</option>
+                            <option value="Devolução" ${order.status === 'Devolução' ? 'selected' : ''}>Devolução</option>
+                            <option value="Recusado" ${order.status === 'Recusado' ? 'selected' : ''}>Recusado</option>
+                        </select>
+                    </td>
+                    <td class="text-center">${deleteButtonHtml}</td>
+                `;
+
+                const detailsRow = document.createElement('tr');
+                detailsRow.classList.add('details-row');
+                detailsRow.innerHTML = `
+                    <td colspan="6">
+                        <div class="collapse" id="details-${order.id}">
+                            <div class="details-content">
+                                <div class="row g-4">
+                                    <div class="col-md-4">
+                                        <h5><i class="bi bi-person-circle me-2"></i>Detalhes do Cliente</h5>
+                                        <p class="mb-1"><strong>Nome:</strong> ${order.usuario?.nome_completo || 'N/A'}</p>
+                                        <p class="mb-1"><strong>Email:</strong> ${order.usuario?.email || 'N/A'}</p>
+                                        <p class="mb-1"><strong>Telefone:</strong> ${order.usuario?.telefone || 'N/A'}</p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h5><i class="bi bi-geo-alt-fill me-2"></i>Endereço de Entrega</h5>
+                                        <p class="mb-1"><strong>Endereço:</strong> ${order.endereco || ''}, ${order.numero || ''}</p>
+                                        <p class="mb-1"><strong>Complemento:</strong> ${order.complemento || 'Nenhum'}</p>
+                                        <p class="mb-1"><strong>Cidade/UF:</strong> ${order.cidade || ''} - ${order.uf || ''}</p>
+                                        <p class="mb-1"><strong>CEP:</strong> ${order.cep || ''}</p>
+                                        <p class="mb-1"><strong>Referência:</strong> ${order.referencia || 'Nenhuma'}</p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h5><i class="bi bi-cart3 me-2"></i>Itens do Pedido</h5>
+                                        <ul class="list-group list-group-flush">${itemsHtml}</ul>
+                                    </div>
                                 </div>
                             </div>
-                            ${order.status === 'Pendente' ? `
-                            <hr>
-                            <div class="text-end">
-                                <button class="btn btn-sm btn-danger refuse-order-btn" data-order-id="${order.id}" data-customer-email="${order.usuario?.email}">Recusar</button>
-                                <button class="btn btn-sm btn-success accept-order-btn" data-order-id="${order.id}" data-customer-email="${order.usuario?.email}">Aceitar</button>
-                            </div>` : ''}
                         </div>
-                    </div>
+                    </td>
                 `;
-                accordionContainer.appendChild(accordionItem);
+                
+                tableBody.appendChild(mainRow);
+                tableBody.appendChild(detailsRow);
             }
         }
 
+        function handleOrderSearch(event) {
+            const searchTerm = event.target.value.toLowerCase().trim();
+            if (!searchTerm) {
+                populateOrdersTable(allOrders);
+                return;
+            }
+
+            const filteredOrders = allOrders.filter(order => {
+                const clientName = order.usuario?.nome_completo?.toLowerCase() || '';
+                const clientEmail = order.usuario?.email?.toLowerCase() || '';
+                const clientPhone = order.usuario?.telefone || '';
+                const orderId = String(order.id);
+
+                return clientName.includes(searchTerm) ||
+                       clientEmail.includes(searchTerm) ||
+                       clientPhone.includes(searchTerm) ||
+                       orderId.includes(searchTerm);
+            });
+            
+            populateOrdersTable(filteredOrders);
+        }
+
+                // --- FUNÇÃO DE STATUS DO PEDIDO (CORRIGIDA) ---
+        // --- FUNÇÃO DE STATUS DO PEDIDO (CORRIGIDA COM RECARREGAMENTO FORÇADO) ---
         async function updateOrderStatus(orderId, newStatus, customerEmail, reason = null) {
             const updateData = { status: newStatus };
             if (reason) updateData.motivo_recusa = reason;
+
+            // 1. Atualiza o banco de dados
             const { error } = await supabase.from('pedidos').update(updateData).eq('id', orderId);
-            if (error) { alert(`Erro ao atualizar pedido: ${error.message}`); return; }
+            
+            if (error) { 
+                alert(`Erro ao atualizar pedido: ${error.message}`);
+                return;
+            }
+
+            // 2. Lógica de notificação e e-mail
             try {
                 let emailType;
                 const emailPayload = { to: customerEmail, orderId };
+                // Mensagem de sucesso para o admin
+                let notificationMessage = 'Status do pedido atualizado com sucesso! Atualizando a lista...';
+
                 if (newStatus === 'Aceito') {
                     emailType = 'PEDIDO_ACEITO';
-                    alert('Pedido aceito! O cliente será notificado.');
+                    notificationMessage = 'Pedido aceito! O cliente será notificado. Atualizando a lista...';
                 } else if (newStatus === 'Recusado') {
                     emailType = 'PEDIDO_RECUSADO';
                     emailPayload.reason = reason;
-                    alert('Pedido recusado! O cliente será notificado.');
+                    notificationMessage = 'Pedido recusado! O cliente será notificado. Atualizando a lista...';
                 }
+
+                alert(notificationMessage);
+
                 if (emailType) {
                     await supabase.functions.invoke('send-email', { body: { type: emailType, ...emailPayload } });
                 }
-            } catch (e) { console.error("Erro ao invocar função de e-mail:", e); alert("O status do pedido foi atualizado, mas houve uma falha ao notificar o cliente."); }
+            } catch (e) { 
+                console.error("Erro ao invocar função de e-mail:", e);
+                alert("O status do pedido foi atualizado, mas houve uma falha ao notificar o cliente.");
+            }
+
+            // 3. A CORREÇÃO: Força o recarregamento completo do conteúdo da aba de pedidos.
+            // Isso vai buscar os dados mais recentes do Supabase e redesenhar a tabela.
             await loadTabContent('v-pills-orders');
         }
         
-        // --- Restante das suas funções (Produtos, Notícias, etc.) ---
+        async function deleteOrder(orderId) {
+            if (!confirm('ATENÇÃO: Ação irreversível!\n\nDeseja excluir este pedido e todos os seus itens associados permanentemente?')) {
+                return;
+            }
+            try {
+                const { error: itemsError } = await supabase.from('itens_pedido').delete().eq('pedido_id', orderId);
+                if (itemsError) throw itemsError;
+
+                const { error: orderError } = await supabase.from('pedidos').delete().eq('id', orderId);
+                if (orderError) throw orderError;
+
+                alert('Pedido excluído com sucesso.');
+                loadTabContent('v-pills-orders');
+            } catch (error) {
+                alert(`Erro ao excluir o pedido: ${error.message}.`);
+                console.error('Erro ao excluir pedido:', error);
+            }
+        }
         
+        async function renderProducts(container) {
+            const { data, error } = await supabase.from('produtos').select('*').order('id');
+            if (error) throw error;
+            allProducts = data;
+            
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Produtos Cadastrados</h2>
+                    <input type="search" id="product-search-input" class="form-control w-50" placeholder="Buscar por Nome ou ID..." autocomplete="off">
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover">
+                        <thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
+                        <tbody id="products-table-body"></tbody>
+                    </table>
+                </div>
+                <a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>
+            `;
+
+            document.getElementById('product-search-input').addEventListener('input', handleProductSearch);
+            populateProductTable(allProducts);
+        }
+
         function populateProductTable(products) {
             const tableBody = document.getElementById('products-table-body');
             tableBody.innerHTML = ''; 
@@ -433,29 +617,6 @@
             populateProductTable(filteredProducts);
         }
 
-        async function renderProducts(container) {
-            const { data, error } = await supabase.from('produtos').select('*').order('id');
-            if (error) throw error;
-            allProducts = data;
-            
-            container.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Produtos Cadastrados</h2>
-                    <input type="search" id="product-search-input" class="form-control w-50" placeholder="Buscar por Nome ou ID..." autocomplete="off">
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-hover">
-                        <thead><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
-                        <tbody id="products-table-body"></tbody>
-                    </table>
-                </div>
-                <a href="gerenciar-produto.html" class="btn btn-primary mt-3"><i class="bi bi-plus-circle me-2"></i>Adicionar Novo Produto</a>
-            `;
-
-            document.getElementById('product-search-input').addEventListener('input', handleProductSearch);
-            populateProductTable(allProducts);
-        }
-        
         async function renderNews(container) {
             const { data: news, error } = await supabase.from('noticias').select('*').order('data', { ascending: false });
             if (error) throw error;
@@ -619,8 +780,7 @@
 
             container.querySelectorAll('#v-pills-interactions .nav-pills .nav-link').forEach(pill => {
                 pill.addEventListener('click', (e) => {
-                    const currentActive = container.querySelector('#v-pills-interactions .nav-pills .nav-link.active');
-                    if(currentActive) currentActive.classList.remove('active');
+                    container.querySelector('#v-pills-interactions .nav-pills .nav-link.active')?.classList.remove('active');
                     e.target.classList.add('active');
                     handleInteractionSearch();
                 });
@@ -734,8 +894,7 @@
                                     <option value="ByteCore Services" ${assignment?.equipe === 'ByteCore Services' ? 'selected' : ''}>ByteCore Services</option>
                                 </select>`;
                         } else {
-                            const teamNameForAdmin = assignment ? assignment.equipe : 'Sem Equipe';
-                            teamDisplayElement = `<span class="badge bg-secondary p-2" style="font-size: 0.85em;">${teamNameForAdmin}</span>`;
+                            teamDisplayElement = `<span class="badge bg-secondary p-2" style="font-size: 0.85em;">${assignment?.equipe || 'Sem Equipe'}</span>`;
                         }
                         
                         html += `
@@ -760,42 +919,41 @@
         
         const tabContent = document.getElementById('v-pills-tabContent');
         
-        // EVENTOS DE CLICK ADICIONADOS
         tabContent.addEventListener('click', async (e) => {
-            // Deleção de Notícia
-            if (e.target.closest('.delete-news-btn')) {
-                const btn = e.target.closest('.delete-news-btn');
-                const newsId = btn.dataset.newsId;
+            const deleteOrderBtn = e.target.closest('.delete-order-btn');
+            if (deleteOrderBtn) {
+                await deleteOrder(deleteOrderBtn.dataset.orderId);
+            }
+            
+            const deleteNewsBtn = e.target.closest('.delete-news-btn');
+            if (deleteNewsBtn) {
                 if (confirm('Deseja realmente excluir esta notícia? Esta ação não pode ser desfeita.')) {
-                    const { error } = await supabase.from('noticias').delete().eq('id', newsId);
-                    if (error) {
-                        alert('Erro ao excluir notícia: ' + error.message);
-                    } else {
+                    const { error } = await supabase.from('noticias').delete().eq('id', deleteNewsBtn.dataset.newsId);
+                    if (error) alert('Erro ao excluir notícia: ' + error.message);
+                    else {
                         alert('Notícia excluída com sucesso.');
                         loadTabContent('v-pills-news');
                     }
                 }
             }
             
-            if (e.target.closest('.delete-product-btn')) {
-                const btn = e.target.closest('.delete-product-btn');
+            const deleteProductBtn = e.target.closest('.delete-product-btn');
+            if (deleteProductBtn) {
                 if (confirm('Deseja excluir este produto?')) {
-                    const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
-                    if (error) {
-                        alert('Erro: ' + error.message);
-                    } else {
-                        allProducts = allProducts.filter(p => String(p.id) !== btn.dataset.productId);
+                    const { error } = await supabase.from('produtos').delete().eq('id', deleteProductBtn.dataset.productId);
+                    if (error) alert('Erro: ' + error.message);
+                    else {
+                        allProducts = allProducts.filter(p => String(p.id) !== deleteProductBtn.dataset.productId);
                         populateProductTable(allProducts);
                     }
                 }
             }
-            if (e.target.closest('.delete-client-btn')) {
-                const btn = e.target.closest('.delete-client-btn');
-                const userId = btn.dataset.userId;
 
+            const deleteClientBtn = e.target.closest('.delete-client-btn');
+            if (deleteClientBtn) {
                 if (confirm('ATENÇÃO: Ação irreversível! Deseja excluir este usuário permanentemente?')) {
-                     try {
-                        const { data, error } = await supabase.auth.admin.deleteUser(userId);
+                    try {
+                        const { error } = await supabase.auth.admin.deleteUser(deleteClientBtn.dataset.userId);
                         if (error) throw error;
                         alert('Usuário excluído com sucesso.');
                         loadTabContent('v-pills-clients');
@@ -805,100 +963,92 @@
                 }
             }
 
-            if (e.target.closest('.delete-interaction-btn')) {
-                const btn = e.target.closest('.delete-interaction-btn');
-                const interactionId = btn.dataset.interactionId;
+            const deleteInteractionBtn = e.target.closest('.delete-interaction-btn');
+            if (deleteInteractionBtn) {
                 if (confirm('ATENÇÃO: Ação irreversível. Deseja excluir esta interação permanentemente?')) {
                     try {
-                        const { error } = await supabase.from('interacoes').delete().eq('id', interactionId);
+                        const { error } = await supabase.from('interacoes').delete().eq('id', deleteInteractionBtn.dataset.interactionId);
                         if (error) throw error;
-                        allInteractions = allInteractions.filter(i => String(i.id) !== interactionId);
+                        allInteractions = allInteractions.filter(i => String(i.id) !== deleteInteractionBtn.dataset.interactionId);
                         handleInteractionSearch();
                     } catch (error) { alert('Erro ao excluir: ' + error.message); }
                 }
             }
 
-            if (e.target.closest('.toggle-admin-btn')) {
-                const btn = e.target.closest('.toggle-admin-btn');
-                const userId = btn.dataset.userId;
-                const currentlyAdmin = btn.dataset.isAdmin === 'true';
+            const toggleAdminBtn = e.target.closest('.toggle-admin-btn');
+            if (toggleAdminBtn) {
+                const currentlyAdmin = toggleAdminBtn.dataset.isAdmin === 'true';
                 if (confirm(`Deseja ${currentlyAdmin ? 'remover o acesso de' : 'conceder acesso de'} admin para este usuário?`)) {
-                    const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', userId);
-                    if (error) { alert('Erro ao alterar status: ' + error.message); } 
-                    else { loadTabContent('v-pills-clients'); }
+                    const { error } = await supabase.from('usuarios').update({ is_admin: !currentlyAdmin }).eq('id', toggleAdminBtn.dataset.userId);
+                    if (error) alert('Erro ao alterar status: ' + error.message);
+                    else loadTabContent('v-pills-clients');
                 }
-            }
-            // Eventos para aceitar/recusar pedido
-            if (e.target.matches('.accept-order-btn')) {
-                const button = e.target;
-                const orderId = button.dataset.orderId;
-                const customerEmail = button.dataset.customerEmail;
-                if (confirm(`Deseja aceitar o pedido #${orderId}?`)) {
-                    await updateOrderStatus(orderId, 'Aceito', customerEmail);
-                }
-            }
-            if (e.target.matches('.refuse-order-btn')) {
-                const button = e.target;
-                const orderId = button.dataset.orderId;
-                const customerEmail = button.dataset.customerEmail;
-                document.getElementById('refusal-order-id').value = orderId;
-                document.getElementById('refusal-customer-email').value = customerEmail;
-                refusalModal.show();
             }
         });
         
         tabContent.addEventListener('change', async (e) => {
-            if (e.target.classList.contains('status-select')) {
-                const interactionId = e.target.dataset.interactionId;
-                const newStatus = e.target.value === 'null' ? null : e.target.value;
+            const statusOrderSelect = e.target.closest('.status-order-select');
+            if (statusOrderSelect) {
+                const orderId = statusOrderSelect.dataset.orderId;
+                const newStatus = statusOrderSelect.value;
+                const customerEmail = statusOrderSelect.dataset.customerEmail;
+
+                if (newStatus === 'Recusado') {
+                    document.getElementById('refusal-order-id').value = orderId;
+                    document.getElementById('refusal-customer-email').value = customerEmail;
+                    refusalModal.show();
+                    // Importante: recarrega para resetar o select se o admin cancelar
+                    // A recusa é confirmada apenas pelo botão do modal
+                } else {
+                    await updateOrderStatus(orderId, newStatus, customerEmail);
+                }
+            }
+
+            const statusSelect = e.target.closest('.status-select');
+            if (statusSelect) {
+                const newStatus = statusSelect.value === 'null' ? null : statusSelect.value;
                 try {
-                    const updateData = { 
+                    const { error } = await supabase.from('interacoes').update({ 
                         status: newStatus,
                         status_modificado_por_nome: currentAdminName,
                         status_modificado_por_email: currentAdminEmail
-                    };
-
-                    const { error } = await supabase.from('interacoes').update(updateData).eq('id', interactionId);
+                    }).eq('id', statusSelect.dataset.interactionId);
                     if (error) throw error;
-
-                    const interaction = allInteractions.find(i => String(i.id) === interactionId);
-                    if(interaction) {
-                        interaction.status = newStatus;
-                        interaction.status_modificado_por_nome = currentAdminName;
-                        interaction.status_modificado_por_email = currentAdminEmail;
-                    }
                     handleInteractionSearch(); 
                 } catch(error) { 
                     alert('Erro ao atualizar o status: ' + error.message); 
                 }
             }
-            if (e.target.classList.contains('team-select')) {
-                const userId = e.target.dataset.userId;
-                const newTeam = e.target.value;
+            
+            const teamSelect = e.target.closest('.team-select');
+            if (teamSelect) {
                 try {
-                    if (newTeam === 'Sem Equipe') await supabase.from('equipe_membros').delete().eq('user_id', userId);
-                    else await supabase.from('equipe_membros').upsert({ user_id: userId, equipe: newTeam }, { onConflict: 'user_id' });
+                    if (teamSelect.value === 'Sem Equipe') {
+                        await supabase.from('equipe_membros').delete().eq('user_id', teamSelect.dataset.userId);
+                    } else {
+                        await supabase.from('equipe_membros').upsert({ user_id: teamSelect.dataset.userId, equipe: teamSelect.value }, { onConflict: 'user_id' });
+                    }
                     loadTabContent('v-pills-team');
                 } catch (error) { alert('Erro ao atualizar equipe: ' + error.message); }
             }
         });
         
-        // Evento do botão de confirmação do modal
         confirmRefusalBtn.addEventListener('click', () => {
-            const orderId = document.getElementById('refusal-order-id').value;
-            const customerEmail = document.getElementById('refusal-customer-email').value;
             const reason = document.getElementById('refusal-reason').value;
             if (reason.trim() === '') {
                 alert('O motivo da recusa é obrigatório.');
                 return;
             }
+            const orderId = document.getElementById('refusal-order-id').value;
+            const customerEmail = document.getElementById('refusal-customer-email').value;
+            
             updateOrderStatus(orderId, 'Recusado', customerEmail, reason);
             refusalModal.hide();
             document.getElementById('refusal-form').reset();
         });
 
-        // --- Inicialização ---
         checkAdminStatus();
+
     </script>
 </body>
 </html>
