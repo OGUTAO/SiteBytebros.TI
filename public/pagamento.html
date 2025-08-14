@@ -87,7 +87,7 @@
         import { supabase } from './js/supabase-client.js';
 
         const confirmarPagamentoBtn = document.getElementById('confirmar-pagamento-btn');
-        let formaPagamentoSelecionada = 'Cartão de Crédito'; // Padrão
+        let formaPagamentoSelecionada = 'Cartão de Crédito';
 
         document.querySelectorAll('#payment-options button').forEach(button => {
             button.addEventListener('click', () => {
@@ -115,9 +115,8 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Finalizando...';
 
             try {
-                // 1. Criar o pedido principal
                 const subtotal = cart.reduce((acc, item) => acc + (item.value * item.quantity), 0);
-                const frete = 25.50; // Simulado
+                const frete = 25.50;
                 
                 const pedidoData = {
                     user_id: session.user.id,
@@ -135,7 +134,6 @@
 
                 if (pedidoError) throw pedidoError;
 
-                // 2. Inserir os itens do pedido
                 const itensDoPedido = cart.map(item => ({
                     pedido_id: pedidoResult.id,
                     produto_id: item.id,
@@ -144,19 +142,24 @@
                 }));
 
                 const { error: itensError } = await supabase.from('itens_pedido').insert(itensDoPedido);
-
                 if (itensError) throw itensError;
 
-                // 3. Limpar o carrinho e redirecionar
+                // Chamando a função de e-mail que você publicou
+                try {
+                    await supabase.functions.invoke('send-email', {
+                        body: { 
+                            type: 'PEDIDO_PENDENTE', 
+                            to: session.user.email, 
+                            orderId: pedidoResult.id 
+                        }
+                    });
+                } catch (e) {
+                    console.error("Aviso: Falha ao enviar e-mail de confirmação:", e.message);
+                }
+
                 localStorage.removeItem('cart');
                 localStorage.removeItem('enderecoEntrega');
                 
-                // --- PONTO DE INTEGRAÇÃO FUTURA COM E-MAIL ---
-                // Aqui você chamaria a sua Edge Function para notificar o cliente.
-                // Ex: await supabase.functions.invoke('send-email', {
-                //   body: { type: 'PEDIDO_PENDENTE', to: session.user.email, orderId: pedidoResult.id }
-                // });
-
                 alert('Pedido realizado com sucesso! Você receberá um e-mail de confirmação em breve.');
                 window.location.href = 'meuspedidos.html';
 

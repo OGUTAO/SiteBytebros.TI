@@ -44,11 +44,11 @@
             <form id="admin-login-form">
                 <div class="mb-3">
                     <label for="admin-email" class="form-label">Email de Administrador</label>
-                    <input type="email" class="form-control" id="admin-email" required>
+                    <input type="email" class="form-control" id="admin-email" name="email" required>
                 </div>
                 <div class="mb-3">
                     <label for="admin-password" class="form-label">Senha</label>
-                    <input type="password" class="form-control" id="admin-password" required>
+                    <input type="password" class="form-control" id="admin-password" name="password" required>
                 </div>
                 <div id="login-error" class="alert alert-danger d-none"></div>
                 <div class="d-grid">
@@ -77,6 +77,7 @@
                 <div class="col-lg-2">
                     <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-orders"><i class="bi bi-receipt me-2"></i>Pedidos</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-products"><i class="bi bi-box-seam me-2"></i>Produtos</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-news"><i class="bi bi-newspaper me-2"></i>Notícias</button>
@@ -87,6 +88,7 @@
                 <div class="col-lg-10">
                     <div class="tab-content card bg-dark text-light border-secondary p-4" id="v-pills-tabContent">
                         <div class="tab-pane fade show active" id="v-pills-dashboard"></div>
+                        <div class="tab-pane fade" id="v-pills-orders"></div>
                         <div class="tab-pane fade" id="v-pills-products"></div>
                         <div class="tab-pane fade" id="v-pills-news"></div>
                         <div class="tab-pane fade" id="v-pills-interactions"></div>
@@ -98,18 +100,46 @@
         </div>
     </div>
     
+    <div class="modal fade" id="refusalModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Motivo da Recusa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="refusal-form">
+                        <input type="hidden" id="refusal-order-id">
+                        <input type="hidden" id="refusal-customer-email">
+                        <div class="mb-3">
+                            <label for="refusal-reason" class="form-label">Por favor, descreva o motivo para recusar este pedido:</label>
+                            <textarea class="form-control bg-dark text-light" id="refusal-reason" rows="4" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirm-refusal-btn">Confirmar Recusa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script type="module">
         import { supabase } from './js/supabase-client.js';
 
-        // --- Variáveis Globais e Autenticação ---
         const loginSection = document.getElementById('admin-login-section');
         const dashboardSection = document.getElementById('admin-dashboard');
         const loginForm = document.getElementById('admin-login-form');
         const logoutBtn = document.getElementById('admin-logout-btn');
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
+        const tabContent = document.getElementById('v-pills-tabContent');
+        const refusalModalEl = document.getElementById('refusalModal');
+        const refusalModal = new bootstrap.Modal(refusalModalEl);
+        const confirmRefusalBtn = document.getElementById('confirm-refusal-btn');
         
         let allProducts = []; 
         let allInteractions = [];
@@ -119,11 +149,9 @@
         let currentAdminEmail = null; 
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
 
-        // --- Variáveis de Presença ---
         let presenceChannel = null;
         let onlineAdmins = {};
 
-        // --- Funções de Presença ---
         function updateAllPresenceIndicators() {
             const indicators = document.querySelectorAll('.presence-indicator');
             indicators.forEach(indicator => {
@@ -187,80 +215,27 @@
             const { data: userProfile, error } = await supabase.from('usuarios').select('is_admin, nome_completo').eq('id', session.user.id).single();
 
             if (error || !userProfile || !userProfile.is_admin) {
+                await supabase.auth.signOut();
                 showLogin();
-                loginError.textContent = "Acesso negado. Esta área é restrita para administradores.";
-                loginError.classList.remove('d-none');
             } else {
                 currentAdminName = userProfile.nome_completo;
                 currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
                 initializePresence(session.user);
-                loadTabContent('v-pills-dashboard');
+                await loadTabContent('v-pills-dashboard');
             }
         }
 
         function showLogin() { 
-            loginSection.classList.remove('d-none'); 
-            dashboardSection.classList.add('d-none'); 
+            loginSection.style.display = 'flex';
+            dashboardSection.style.display = 'none';
         }
 
         function showDashboard(email) { 
-            loginSection.classList.add('d-none'); 
-            dashboardSection.classList.remove('d-none'); 
+            loginSection.style.display = 'none';
+            dashboardSection.style.display = 'block';
             adminEmailDisplay.textContent = email; 
         }
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = e.submitter;
-            btn.disabled = true;
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Entrando...`;
-            const { error } = await supabase.auth.signInWithPassword({ email: document.getElementById('admin-email').value, password: document.getElementById('admin-password').value });
-            if (error) {
-                loginError.textContent = "Email ou senha inválidos.";
-                loginError.classList.remove('d-none');
-                btn.disabled = false;
-                btn.innerHTML = 'Entrar';
-            } else { 
-                await checkAdminStatus(); 
-            }
-        });
-
-        logoutBtn.addEventListener('click', async () => { 
-            if (presenceChannel) {
-                await presenceChannel.untrack();
-                await supabase.removeChannel(presenceChannel);
-                presenceChannel = null;
-            }
-            await supabase.auth.signOut(); 
-            loginError.classList.add('d-none');
-            loginError.textContent = '';
-            showLogin(); 
-        });
-
-        document.querySelectorAll('#v-pills-tab button').forEach(tab => {
-            tab.addEventListener('shown.bs.tab', (event) => {
-                const targetId = event.target.getAttribute('data-bs-target').substring(1);
-                loadTabContent(targetId);
-            });
-        });
-
-        async function loadTabContent(tabId) {
-            const contentArea = document.getElementById(tabId);
-            contentArea.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
-            try {
-                switch (tabId) {
-                    case 'v-pills-dashboard': await renderDashboard(contentArea); break;
-                    case 'v-pills-products': await renderProducts(contentArea); break;
-                    case 'v-pills-news': await renderNews(contentArea); break;
-                    case 'v-pills-interactions': await renderInteractions(contentArea); break;
-                    case 'v-pills-clients': await renderClients(contentArea); break;
-                    case 'v-pills-team': await renderTeamDashboard(contentArea); break;
-                }
-            } catch (err) { contentArea.innerHTML = `<div class="alert alert-danger">${err.message}</div>`; }
-        }
-        
-        // --- Funções de Renderização das Abas ---
 
         async function renderDashboard(container) {
             const { count: clientCount } = await supabase.from('usuarios').select('*', { count: 'exact', head: true });
@@ -632,21 +607,155 @@
             updateAllPresenceIndicators();
         }
         
-        const tabContent = document.getElementById('v-pills-tabContent');
+        async function renderOrders(container) {
+            container.innerHTML = `<h2>Pedidos da Loja</h2><div class="accordion mt-4" id="ordersAccordion"></div>`;
+            const accordionContainer = document.getElementById('ordersAccordion');
+
+            const { data: orders, error } = await supabase.from('pedidos')
+                .select(`*, usuario:usuarios(nome_completo, email)`)
+                .order('criado_em', { ascending: false });
+
+            if (error) { accordionContainer.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; return; }
+            if (!orders || orders.length === 0) { accordionContainer.innerHTML = '<p class="text-muted text-center">Nenhum pedido encontrado.</p>'; return; }
+            
+            accordionContainer.innerHTML = '';
+            for (const order of orders) {
+                const { data: items } = await supabase.from('itens_pedido').select(`*, produto:produtos(name)`).eq('pedido_id', order.id);
+
+                const statusColors = { 'Pendente': 'bg-warning text-dark', 'Aceito': 'bg-success', 'Recusado': 'bg-danger' };
+                const badgeColor = statusColors[order.status] || 'bg-secondary';
+                const createdDate = new Date(order.criado_em).toLocaleString('pt-BR');
+
+                const itemsHtml = items && items.length > 0
+                    ? items.map(i => `<li>${i.quantidade}x ${i.produto?.name || 'Produto indisponível'} - ${parseFloat(i.valor_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</li>`).join('')
+                    : '<li>Nenhum item encontrado para este pedido.</li>';
+
+                const accordionItem = document.createElement('div');
+                accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
+                accordionItem.innerHTML = `
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-order-${order.id}">
+                            <div class="d-flex w-100 justify-content-between align-items-center pe-3 flex-wrap">
+                                <span>Pedido #${order.id} - <strong>${order.usuario?.nome_completo || 'Cliente Excluído'}</strong></span>
+                                <span class="badge ${badgeColor} mx-2">${order.status}</span>
+                                <span class="text-muted small">${createdDate}</span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse-order-${order.id}" class="accordion-collapse collapse" data-bs-parent="#ordersAccordion">
+                        <div class="accordion-body border-top border-secondary">
+                            <div class="row g-4">
+                                <div class="col-md-7">
+                                    <h5>Itens do Pedido:</h5>
+                                    <ul>${itemsHtml}</ul>
+                                    <hr>
+                                    <strong>Total: ${parseFloat(order.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                </div>
+                                <div class="col-md-5">
+                                    <h5>Detalhes do Cliente:</h5>
+                                    <p class="mb-1"><strong>Nome:</strong> ${order.usuario?.nome_completo || 'N/A'}</p>
+                                    <p class="mb-1"><strong>Email:</strong> ${order.usuario?.email || 'N/A'}</p>
+                                    <p class="mb-1"><strong>Endereço:</strong> ${order.endereco_entrega || 'N/A'}</p>
+                                    <p><strong>Pagamento:</strong> ${order.forma_pagamento || 'N/A'}</p>
+                                    ${order.status === 'Recusado' ? `<p class="mb-1 text-danger"><strong>Motivo:</strong> ${order.motivo_recusa}</p>` : ''}
+                                </div>
+                            </div>
+                            ${order.status === 'Pendente' ? `
+                            <hr>
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-danger refuse-order-btn" data-order-id="${order.id}" data-customer-email="${order.usuario?.email}">Recusar</button>
+                                <button class="btn btn-sm btn-success accept-order-btn" data-order-id="${order.id}" data-customer-email="${order.usuario?.email}">Aceitar</button>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `;
+                accordionContainer.appendChild(accordionItem);
+            }
+        }
+
+        async function updateOrderStatus(orderId, newStatus, customerEmail, reason = null) {
+            const updateData = { status: newStatus };
+            if (reason) updateData.motivo_recusa = reason;
+            const { error } = await supabase.from('pedidos').update(updateData).eq('id', orderId);
+            if (error) { alert(`Erro ao atualizar pedido: ${error.message}`); return; }
+            try {
+                let emailType;
+                const emailPayload = { to: customerEmail, orderId };
+                if (newStatus === 'Aceito') {
+                    emailType = 'PEDIDO_ACEITO';
+                    alert('Pedido aceito! O cliente será notificado.');
+                } else if (newStatus === 'Recusado') {
+                    emailType = 'PEDIDO_RECUSADO';
+                    emailPayload.reason = reason;
+                    alert('Pedido recusado! O cliente será notificado.');
+                }
+                if (emailType) {
+                    await supabase.functions.invoke('send-email', { body: { type: emailType, ...emailPayload } });
+                }
+            } catch (e) { console.error("Erro ao invocar função de e-mail:", e); alert("O status do pedido foi atualizado, mas houve uma falha ao notificar o cliente."); }
+            await loadTabContent('v-pills-orders');
+        }
+
+        async function loadTabContent(tabId) {
+            const contentArea = document.getElementById(tabId);
+            contentArea.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+            try {
+                switch (tabId) {
+                    case 'v-pills-dashboard': await renderDashboard(contentArea); break;
+                    case 'v-pills-orders': await renderOrders(contentArea); break;
+                    case 'v-pills-products': await renderProducts(contentArea); break;
+                    case 'v-pills-news': await renderNews(contentArea); break;
+                    case 'v-pills-interactions': await renderInteractions(contentArea); break;
+                    case 'v-pills-clients': await renderClients(contentArea); break;
+                    case 'v-pills-team': await renderTeamDashboard(contentArea); break;
+                }
+            } catch (err) { contentArea.innerHTML = `<div class="alert alert-danger">${err.message}</div>`; }
+        }
         
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            loginError.classList.add('d-none');
+            const btn = e.submitter;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Entrando...`;
+            const { error } = await supabase.auth.signInWithPassword({ 
+                email: document.getElementById('admin-email').value, 
+                password: document.getElementById('admin-password').value 
+            });
+            if (error) {
+                loginError.textContent = "Email ou senha inválidos.";
+                loginError.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = 'Entrar';
+            } else {
+                await checkAdminStatus();
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            if (presenceChannel) {
+                await presenceChannel.untrack();
+                await supabase.removeChannel(presenceChannel);
+                presenceChannel = null;
+            }
+            await supabase.auth.signOut();
+            showLogin();
+        });
+
+        document.querySelectorAll('#v-pills-tab button').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', (event) => {
+                loadTabContent(event.target.getAttribute('data-bs-target').substring(1));
+            });
+        });
+
         tabContent.addEventListener('click', async (e) => {
-            // Deleção de Notícia
             if (e.target.closest('.delete-news-btn')) {
                 const btn = e.target.closest('.delete-news-btn');
                 const newsId = btn.dataset.newsId;
                 if (confirm('Deseja realmente excluir esta notícia? Esta ação não pode ser desfeita.')) {
                     const { error } = await supabase.from('noticias').delete().eq('id', newsId);
-                    if (error) {
-                        alert('Erro ao excluir notícia: ' + error.message);
-                    } else {
-                        alert('Notícia excluída com sucesso.');
-                        loadTabContent('v-pills-news'); // Recarrega a aba de notícias
-                    }
+                    if (error) { alert('Erro ao excluir notícia: ' + error.message); } 
+                    else { alert('Notícia excluída com sucesso.'); loadTabContent('v-pills-news'); }
                 }
             }
             
@@ -654,27 +763,21 @@
                 const btn = e.target.closest('.delete-product-btn');
                 if (confirm('Deseja excluir este produto?')) {
                     const { error } = await supabase.from('produtos').delete().eq('id', btn.dataset.productId);
-                    if (error) {
-                        alert('Erro: ' + error.message);
-                    } else {
-                        allProducts = allProducts.filter(p => String(p.id) !== btn.dataset.productId);
-                        populateProductTable(allProducts);
-                    }
+                    if (error) { alert('Erro: ' + error.message); } 
+                    else { allProducts = allProducts.filter(p => String(p.id) !== btn.dataset.productId); populateProductTable(allProducts); }
                 }
             }
+
             if (e.target.closest('.delete-client-btn')) {
                 const btn = e.target.closest('.delete-client-btn');
                 const userId = btn.dataset.userId;
-
                 if (confirm('ATENÇÃO: Ação irreversível! Deseja excluir este usuário permanentemente?')) {
                      try {
                         const { data, error } = await supabase.auth.admin.deleteUser(userId);
                         if (error) throw error;
                         alert('Usuário excluído com sucesso.');
                         loadTabContent('v-pills-clients');
-                    } catch (error) {
-                        alert(`Erro ao excluir usuário: ${error.message}. Esta ação pode exigir privilégios elevados.`);
-                    }
+                    } catch (error) { alert(`Erro ao excluir usuário: ${error.message}. Esta ação pode exigir privilégios elevados.`); }
                 }
             }
 
@@ -700,6 +803,23 @@
                     if (error) { alert('Erro ao alterar status: ' + error.message); } 
                     else { loadTabContent('v-pills-clients'); }
                 }
+            }
+
+            if (e.target.matches('.accept-order-btn')) {
+                const button = e.target;
+                const orderId = button.dataset.orderId;
+                const customerEmail = button.dataset.customerEmail;
+                if (confirm(`Deseja aceitar o pedido #${orderId}?`)) {
+                    await updateOrderStatus(orderId, 'Aceito', customerEmail);
+                }
+            }
+            if (e.target.matches('.refuse-order-btn')) {
+                const button = e.target;
+                const orderId = button.dataset.orderId;
+                const customerEmail = button.dataset.customerEmail;
+                document.getElementById('refusal-order-id').value = orderId;
+                document.getElementById('refusal-customer-email').value = customerEmail;
+                refusalModal.show();
             }
         });
         
@@ -739,7 +859,19 @@
             }
         });
 
-        // --- Inicialização ---
+        confirmRefusalBtn.addEventListener('click', () => {
+            const orderId = document.getElementById('refusal-order-id').value;
+            const customerEmail = document.getElementById('refusal-customer-email').value;
+            const reason = document.getElementById('refusal-reason').value;
+            if (reason.trim() === '') {
+                alert('O motivo da recusa é obrigatório.');
+                return;
+            }
+            updateOrderStatus(orderId, 'Recusado', customerEmail, reason);
+            refusalModal.hide();
+            document.getElementById('refusal-form').reset();
+        });
+
         checkAdminStatus();
     </script>
 </body>
