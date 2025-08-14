@@ -124,8 +124,6 @@
         let onlineAdmins = {};
 
         // --- Funções de Presença ---
-
-        // Atualiza a interface de todos os indicadores de presença
         function updateAllPresenceIndicators() {
             const indicators = document.querySelectorAll('.presence-indicator');
             indicators.forEach(indicator => {
@@ -140,7 +138,6 @@
             });
         }
 
-        // Inicia a conexão com o canal de presença
         function initializePresence(user) {
             if (presenceChannel) {
                 supabase.removeChannel(presenceChannel);
@@ -149,30 +146,28 @@
 
             presenceChannel
                 .on('presence', { event: 'sync' }, () => {
-                    // **CORREÇÃO APLICADA AQUI**
                     const state = presenceChannel.presenceState();
-                    onlineAdmins = {}; // Reseta a lista local
+                    onlineAdmins = {}; 
                     for (const id in state) {
                         const presence = state[id][0];
                         onlineAdmins[presence.user_id] = { name: presence.name };
                     }
-                    updateAllPresenceIndicators(); // Atualiza a UI com a lista completa
+                    updateAllPresenceIndicators();
                 })
                 .on('presence', { event: 'join' }, ({ newPresences }) => {
                     newPresences.forEach(p => {
                         onlineAdmins[p.user_id] = { name: p.name };
                     });
-                    updateAllPresenceIndicators(); // Atualiza a UI quando alguém entra
+                    updateAllPresenceIndicators();
                 })
                 .on('presence', { event: 'leave' }, ({ leftPresences }) => {
                     leftPresences.forEach(p => {
                         delete onlineAdmins[p.user_id];
                     });
-                    updateAllPresenceIndicators(); // Atualiza a UI quando alguém sai
+                    updateAllPresenceIndicators();
                 })
                 .subscribe(async (status) => {
                     if (status === 'SUBSCRIBED') {
-                        // Informa ao canal que este usuário está online
                         await presenceChannel.track({
                             user_id: user.id,
                             name: currentAdminName
@@ -199,7 +194,7 @@
                 currentAdminName = userProfile.nome_completo;
                 currentAdminEmail = session.user.email;
                 showDashboard(session.user.email);
-                initializePresence(session.user); // Inicia a funcionalidade de presença
+                initializePresence(session.user);
                 loadTabContent('v-pills-dashboard');
             }
         }
@@ -233,7 +228,6 @@
 
         logoutBtn.addEventListener('click', async () => { 
             if (presenceChannel) {
-                // Desconecta do canal de presença antes de fazer o logout
                 await presenceChannel.untrack();
                 await supabase.removeChannel(presenceChannel);
                 presenceChannel = null;
@@ -337,7 +331,48 @@
         }
         
         async function renderNews(container) {
-            container.innerHTML = '<h2>Gerenciamento de Notícias (Em breve)</h2>';
+            const { data: news, error } = await supabase.from('noticias').select('*').order('data', { ascending: false });
+            if (error) throw error;
+
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Notícias Publicadas</h2>
+                    <a href="gerenciar-noticia.html" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Adicionar Nova Notícia</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Título</th>
+                                <th>Autor</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="news-table-body"></tbody>
+                    </table>
+                </div>
+            `;
+            
+            const tableBody = document.getElementById('news-table-body');
+            if (news.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">Nenhuma notícia publicada.</td></tr>';
+                return;
+            }
+
+            news.forEach(n => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${n.titulo}</td>
+                    <td>${n.autor || 'N/A'}</td>
+                    <td>${new Date(n.data).toLocaleDateString('pt-BR')}</td>
+                    <td>
+                        <a href="gerenciar-noticia.html?id=${n.id}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-fill"></i></a>
+                        <button class="btn btn-sm btn-outline-danger delete-news-btn" data-news-id="${n.id}"><i class="bi bi-trash"></i></button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
         }
         
         function getActiveInteractionFilter() {
@@ -594,12 +629,27 @@
             }
             html += `</div>`;
             container.innerHTML = html;
-            updateAllPresenceIndicators(); // Garante que os indicadores sejam exibidos com o status correto ao carregar a aba
+            updateAllPresenceIndicators();
         }
         
         const tabContent = document.getElementById('v-pills-tabContent');
         
         tabContent.addEventListener('click', async (e) => {
+            // Deleção de Notícia
+            if (e.target.closest('.delete-news-btn')) {
+                const btn = e.target.closest('.delete-news-btn');
+                const newsId = btn.dataset.newsId;
+                if (confirm('Deseja realmente excluir esta notícia? Esta ação não pode ser desfeita.')) {
+                    const { error } = await supabase.from('noticias').delete().eq('id', newsId);
+                    if (error) {
+                        alert('Erro ao excluir notícia: ' + error.message);
+                    } else {
+                        alert('Notícia excluída com sucesso.');
+                        loadTabContent('v-pills-news'); // Recarrega a aba de notícias
+                    }
+                }
+            }
+            
             if (e.target.closest('.delete-product-btn')) {
                 const btn = e.target.closest('.delete-product-btn');
                 if (confirm('Deseja excluir este produto?')) {
