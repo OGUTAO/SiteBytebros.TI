@@ -357,7 +357,7 @@
             container.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Pedidos da Loja</h2>
-                    <input type="search" id="order-search-input" class="form-control w-50" placeholder="Buscar por Cliente, Email, Telefone ou ID do Pedido..." autocomplete="off">
+                    <input type="search" id="order-search-input" class="form-control w-50" placeholder="Buscar por Cliente, Email ou ID do Pedido..." autocomplete="off">
                 </div>
                 <div class="table-responsive">
                     <table class="table table-dark table-hover fixed-table-layout">
@@ -404,9 +404,9 @@
                 
                 const itemsHtml = items && items.length > 0
                     ? items.map(i => `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                          <span>${i.quantidade}x ${i.produto?.name || 'Produto indisponível'}</span>
-                                          <span class="badge bg-primary rounded-pill">${parseFloat(i.valor_unitario * i.quantidade).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                                      </li>`).join('')
+                                            <span>${i.quantidade}x ${i.produto?.name || 'Produto indisponível'}</span>
+                                            <span class="badge bg-primary rounded-pill">${parseFloat(i.valor_unitario * i.quantidade).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        </li>`).join('')
                     : '<li class="list-group-item">Nenhum item encontrado.</li>';
 
                 const mainRow = document.createElement('tr');
@@ -477,34 +477,48 @@
         }
 
         function handleOrderSearch(event) {
-            const searchTerm = event.target.value.toLowerCase().trim();
+            // Padroniza o termo de busca: remove espaços do início/fim e converte para minúsculas.
+            const searchTerm = event.target.value.trim().toLowerCase();
+
+            // Se a barra de pesquisa estiver vazia, mostra todos os pedidos novamente.
             if (!searchTerm) {
                 populateOrdersTable(allOrders);
                 return;
             }
 
             const filteredOrders = allOrders.filter(order => {
+                // Prepara os dados do pedido para a comparação, sempre em minúsculas.
                 const clientName = order.usuario?.nome_completo?.toLowerCase() || '';
                 const clientEmail = order.usuario?.email?.toLowerCase() || '';
-                const clientPhone = order.usuario?.telefone || '';
                 const orderId = String(order.id);
 
-                return clientName.includes(searchTerm) ||
-                       clientEmail.includes(searchTerm) ||
-                       clientPhone.includes(searchTerm) ||
-                       orderId.includes(searchTerm);
+                // --- LÓGICA DE BUSCA CORRIGIDA E SIMPLIFICADA ---
+
+                // CASO 1: A busca é por ID (começa com "id ").
+                if (searchTerm.startsWith('id ')) {
+                    // Extrai o número após "id ". Ex: "id 123" -> "123".
+                    const idToSearch = searchTerm.substring(3).trim();
+                    
+                    // Retorna 'true' apenas se o ID do pedido for exatamente igual ao número pesquisado.
+                    // A busca só é válida se o usuário digitou um número após "id ".
+                    return idToSearch ? orderId === idToSearch : false;
+                } 
+                
+                // CASO 2: Se não for busca por ID, procura por nome ou email.
+                else {
+                    // Retorna 'true' se o nome OU o email incluírem o termo pesquisado.
+                    return clientName.includes(searchTerm) || clientEmail.includes(searchTerm);
+                }
             });
             
+            // Atualiza a tabela com os resultados do filtro.
             populateOrdersTable(filteredOrders);
         }
 
-                // --- FUNÇÃO DE STATUS DO PEDIDO (CORRIGIDA) ---
-        // --- FUNÇÃO DE STATUS DO PEDIDO (CORRIGIDA COM RECARREGAMENTO FORÇADO) ---
         async function updateOrderStatus(orderId, newStatus, customerEmail, reason = null) {
             const updateData = { status: newStatus };
             if (reason) updateData.motivo_recusa = reason;
 
-            // 1. Atualiza o banco de dados
             const { error } = await supabase.from('pedidos').update(updateData).eq('id', orderId);
             
             if (error) { 
@@ -512,20 +526,18 @@
                 return;
             }
 
-            // 2. Lógica de notificação e e-mail
             try {
                 let emailType;
                 const emailPayload = { to: customerEmail, orderId };
-                // Mensagem de sucesso para o admin
-                let notificationMessage = 'Status do pedido atualizado com sucesso! Atualizando a lista...';
+                let notificationMessage = 'Status do pedido atualizado com sucesso!';
 
                 if (newStatus === 'Aceito') {
                     emailType = 'PEDIDO_ACEITO';
-                    notificationMessage = 'Pedido aceito! O cliente será notificado. Atualizando a lista...';
+                    notificationMessage = 'Pedido aceito! O cliente será notificado.';
                 } else if (newStatus === 'Recusado') {
                     emailType = 'PEDIDO_RECUSADO';
                     emailPayload.reason = reason;
-                    notificationMessage = 'Pedido recusado! O cliente será notificado. Atualizando a lista...';
+                    notificationMessage = 'Pedido recusado! O cliente será notificado.';
                 }
 
                 alert(notificationMessage);
@@ -538,8 +550,7 @@
                 alert("O status do pedido foi atualizado, mas houve uma falha ao notificar o cliente.");
             }
 
-            // 3. A CORREÇÃO: Força o recarregamento completo do conteúdo da aba de pedidos.
-            // Isso vai buscar os dados mais recentes do Supabase e redesenhar a tabela.
+            // AQUI ESTÁ A CHAVE: Força o recarregamento completo do conteúdo da aba de pedidos.
             await loadTabContent('v-pills-orders');
         }
         
@@ -987,6 +998,7 @@
         });
         
         tabContent.addEventListener('change', async (e) => {
+            // Lógica para a aba de PEDIDOS
             const statusOrderSelect = e.target.closest('.status-order-select');
             if (statusOrderSelect) {
                 const orderId = statusOrderSelect.dataset.orderId;
@@ -997,24 +1009,43 @@
                     document.getElementById('refusal-order-id').value = orderId;
                     document.getElementById('refusal-customer-email').value = customerEmail;
                     refusalModal.show();
-                    // Importante: recarrega para resetar o select se o admin cancelar
-                    // A recusa é confirmada apenas pelo botão do modal
+                    // Importante: recarrega para resetar o select se o admin cancelar no modal
+                    refusalModalEl.addEventListener('hidden.bs.modal', () => {
+                        loadTabContent('v-pills-orders');
+                    }, { once: true });
                 } else {
                     await updateOrderStatus(orderId, newStatus, customerEmail);
                 }
             }
 
+            // Lógica para a aba de INTERAÇÕES (CORRIGIDA)
             const statusSelect = e.target.closest('.status-select');
             if (statusSelect) {
+                const interactionId = statusSelect.dataset.interactionId;
                 const newStatus = statusSelect.value === 'null' ? null : statusSelect.value;
                 try {
                     const { error } = await supabase.from('interacoes').update({ 
                         status: newStatus,
                         status_modificado_por_nome: currentAdminName,
                         status_modificado_por_email: currentAdminEmail
-                    }).eq('id', statusSelect.dataset.interactionId);
+                    }).eq('id', interactionId);
+
                     if (error) throw error;
+                    
+                    // --- A CORREÇÃO PRINCIPAL ESTÁ AQUI ---
+                    // 1. Encontra a interação no array local.
+                    const interactionInArray = allInteractions.find(i => String(i.id) === interactionId);
+                    if(interactionInArray) {
+                        // 2. Atualiza o status e quem modificou diretamente no array.
+                        interactionInArray.status = newStatus;
+                        interactionInArray.status_modificado_por_nome = currentAdminName;
+                        interactionInArray.status_modificado_por_email = currentAdminEmail;
+                    }
+                    
+                    // 3. Re-renderiza a lista a partir do array já atualizado.
                     handleInteractionSearch(); 
+                    // --- FIM DA CORREÇÃO ---
+
                 } catch(error) { 
                     alert('Erro ao atualizar o status: ' + error.message); 
                 }
