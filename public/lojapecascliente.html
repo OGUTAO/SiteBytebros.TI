@@ -61,7 +61,7 @@
 
     <footer class="footer mt-auto py-3">
         <div class="container text-center">
-            <p>&copy; 2025 ByteBrosTI. Todos os direitos reservados. v2.0</p>
+            <p>&copy; 2025 ByteBrosTI. Todos os direitos reservados. Shop v1.0</p>
         </div>
     </footer>
 
@@ -77,19 +77,19 @@
         const themeToggle = document.getElementById('theme-toggle');
         let currentProductToAdd = null;
         let allProducts = [];
+        let userFavorites = new Set();
 
         function createProductCard(product) {
-            const isFavorited = (JSON.parse(localStorage.getItem('favoritos')) || []).includes(product.name);
+            const isFavorited = userFavorites.has(product.id);
             const favIconClass = isFavorited ? 'bi-heart-fill text-danger' : 'bi-heart';
 
             const cardCol = document.createElement('div');
             cardCol.className = 'col-lg-3 col-md-4 col-sm-6';
-
-            // ***** CÓDIGO ATUALIZADO *****
-            // Usa product.image_url para a imagem e product.quantity para o estoque.
+            
+            // O ID agora é aplicado diretamente no <div class="card ...">
             cardCol.innerHTML = `
-                <div class="card h-100 shadow-sm product-card position-relative">
-                    <i class="bi ${favIconClass} position-absolute top-0 end-0 m-2 fs-4" style="cursor: pointer;" data-product-name="${product.name}"></i>
+                <div id="product-card-${product.id}" class="card h-100 shadow-sm product-card position-relative">
+                    <i class="bi ${favIconClass} favorite-icon position-absolute top-0 end-0 m-2 fs-4" style="cursor: pointer;" data-product-id="${product.id}"></i>
                     <img src="${product.image || 'img/default_product.jpg'}" class="card-img-top p-3" alt="${product.name}" style="height: 200px; object-fit: contain;">
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title">${product.name}</h5>
@@ -108,13 +108,16 @@
 
         async function loadProducts() {
             productListContainer.innerHTML = '<div class="text-center w-100"><div class="spinner-border" role="status"></div></div>';
-            try {
-                // Busca todos os produtos para mostrar até os que estão fora de estoque (desabilitados)
-                const { data, error } = await supabase
-                    .from('produtos')
-                    .select('*')
-                    .order('name', { ascending: true });
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data: favorites, error: favError } = await supabase.from('favoritos').select('produto_id').eq('user_id', session.user.id);
+                if (favError) console.error("Erro ao buscar favoritos:", favError);
+                else userFavorites = new Set(favorites.map(f => f.produto_id));
+            }
 
+            try {
+                const { data, error } = await supabase.from('produtos').select('*').order('name', { ascending: true });
                 if (error) throw error;
                 allProducts = data;
 
@@ -129,40 +132,83 @@
                     productListContainer.appendChild(card);
                 });
                 attachCardEvents();
+                
+                // *** CHAMA A FUNÇÃO DE DESTAQUE AQUI ***
+                handleHighlight();
 
             } catch (error) {
                 productListContainer.innerHTML = `<div class="alert alert-danger">Erro ao carregar produtos: ${error.message}</div>`;
             }
         }
 
+        // *** NOVA FUNÇÃO PARA ROLAR E DESTACAR ***
+        function handleHighlight() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const productIdToHighlight = urlParams.get('highlight');
+
+            if (productIdToHighlight) {
+                const productCard = document.getElementById(`product-card-${productIdToHighlight}`);
+                if (productCard) {
+                    // Rola a tela até o elemento
+                    productCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Adiciona a classe da animação diretamente ao card
+                    productCard.classList.add('product-highlight');
+                    
+                    // Remove a classe após a animação terminar (duração de 2s)
+                    setTimeout(() => {
+                        productCard.classList.remove('product-highlight');
+                    }, 2000);
+                }
+            }
+        }
+
         function attachCardEvents() {
             document.querySelectorAll('.add-to-cart-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
+                button.addEventListener('click', async (e) => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) {
+                        alert('Você precisa estar logado para adicionar itens ao carrinho.');
+                        window.location.href = 'login.html';
+                        return;
+                    }
                     const productId = e.target.dataset.productId;
                     currentProductToAdd = allProducts.find(p => String(p.id) === productId);
                     if (currentProductToAdd) openQuantityModal(currentProductToAdd);
                 });
             });
 
-            document.querySelectorAll('.bi-heart, .bi-heart-fill').forEach(icon => {
-                icon.addEventListener('click', (e) => toggleFavorite(e.target));
+            document.querySelectorAll('.favorite-icon').forEach(icon => {
+                icon.addEventListener('click', async (e) => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) {
+                        alert('Você precisa estar logado para favoritar um item.');
+                        return; 
+                    }
+                    toggleFavorite(e.target, session.user.id);
+                });
             });
         }
+        
+        async function toggleFavorite(iconEl, userId) {
+            const productId = parseInt(iconEl.dataset.productId);
+            const isFavorited = userFavorites.has(productId);
 
-        function toggleFavorite(iconEl) {
-            const productName = iconEl.dataset.productName;
-            let favoritos = JSON.parse(localStorage.getItem('favoritos')) || [];
-            
-            if (favoritos.includes(productName)) {
-                favoritos = favoritos.filter(name => name !== productName);
-                iconEl.classList.replace('bi-heart-fill', 'bi-heart');
-                iconEl.classList.remove('text-danger');
+            if (isFavorited) {
+                const { error } = await supabase.from('favoritos').delete().match({ user_id: userId, produto_id: productId });
+                if (!error) {
+                    userFavorites.delete(productId);
+                    iconEl.classList.replace('bi-heart-fill', 'bi-heart');
+                    iconEl.classList.remove('text-danger');
+                }
             } else {
-                favoritos.push(productName);
-                iconEl.classList.replace('bi-heart', 'bi-heart-fill');
-                iconEl.classList.add('text-danger');
+                const { error } = await supabase.from('favoritos').insert({ user_id: userId, produto_id: productId });
+                if (!error) {
+                    userFavorites.add(productId);
+                    iconEl.classList.replace('bi-heart', 'bi-heart-fill');
+                    iconEl.classList.add('text-danger');
+                }
             }
-            localStorage.setItem('favoritos', JSON.stringify(favoritos));
         }
 
         function openQuantityModal(product) {
@@ -197,13 +243,11 @@
                 }
                 existingItem.quantity += quantity;
             } else {
-                // ***** CÓDIGO ATUALIZADO *****
-                // Salva o objeto no carrinho com os nomes corretos do banco de dados
                 cart.push({
                     id: currentProductToAdd.id,
                     name: currentProductToAdd.name,
                     value: currentProductToAdd.value,
-                    image: currentProductToAdd.image, // Corrigido
+                    image: currentProductToAdd.image,
                     quantity: quantity
                 });
             }
@@ -221,7 +265,6 @@
             badge.style.display = totalItems > 0 ? 'block' : 'none';
         }
         
-        // Lógica do Tema
         if (themeToggle) {
             themeToggle.addEventListener('click', () => {
                 const currentTheme = document.documentElement.getAttribute('data-bs-theme');
@@ -235,7 +278,6 @@
             document.documentElement.setAttribute('data-bs-theme', savedTheme);
         }
 
-        // Event Listeners e Funções Iniciais
         confirmAddToCartBtn.addEventListener('click', addToCart);
         loadProducts();
         updateCartBadge();

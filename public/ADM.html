@@ -103,7 +103,10 @@
                 <a class="navbar-brand" href="#">Painel Byte Bros.TI</a>
                 <div class="d-flex align-items-center">
                     <span id="admin-email-display" class="navbar-text me-3"></span>
-                    <button id="admin-logout-btn" class="btn btn-outline-danger btn-sm">Sair</button>
+                    <a href="index.html" class="btn btn-primary btn-sm me-2">
+                        <i class="bi bi-house-door-fill me-1"></i> Menu Principal
+                    </a>
+                    <button id="admin-logout-btn" class="btn btn-outline-danger btn-sm">Sair</button> 
                 </div>
             </div>
         </nav>
@@ -167,13 +170,19 @@
         import { supabase } from './js/supabase-client.js';
 
         // --- Variáveis Globais ---
+        const statusColors = { 
+            'Novo': 'badge-new', 
+            'Pendente': 'bg-warning text-dark', 
+            'Em Processo': 'bg-info text-dark', 
+            'Concluída': 'bg-success', 
+            'Cancelada': 'bg-danger' 
+        };
         const loginSection = document.getElementById('admin-login-section');
         const dashboardSection = document.getElementById('admin-dashboard');
         const loginForm = document.getElementById('admin-login-form');
         const logoutBtn = document.getElementById('admin-logout-btn');
         const adminEmailDisplay = document.getElementById('admin-email-display');
         const loginError = document.getElementById('login-error');
-        
         const refusalModalEl = document.getElementById('refusalModal');
         const refusalModal = new bootstrap.Modal(refusalModalEl);
         const confirmRefusalBtn = document.getElementById('confirm-refusal-btn');
@@ -458,6 +467,7 @@
                                         <p class="mb-1"><strong>Endereço:</strong> ${order.endereco || ''}, ${order.numero || ''}</p>
                                         <p class="mb-1"><strong>Complemento:</strong> ${order.complemento || 'Nenhum'}</p>
                                         <p class="mb-1"><strong>Cidade/UF:</strong> ${order.cidade || ''} - ${order.uf || ''}</p>
+                                        <p class="mb-1"><strong>Bairro:</strong> ${order.bairro || ''}</p>
                                         <p class="mb-1"><strong>CEP:</strong> ${order.cep || ''}</p>
                                         <p class="mb-1"><strong>Referência:</strong> ${order.referencia || 'Nenhuma'}</p>
                                     </div>
@@ -681,74 +691,84 @@
         }
 
         function populateInteractionsAccordion(interactions) {
-            const accordionContainer = document.getElementById('interactionsAccordion');
-            accordionContainer.innerHTML = '';
-            const statusColors = { 'Novo': 'badge-new', 'Pendente': 'bg-warning text-dark', 'Em Processo': 'bg-info text-dark', 'Concluída': 'bg-success', 'Cancelada': 'bg-danger' };
-
-            if (interactions.length === 0) {
-                accordionContainer.innerHTML = `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
-                return;
-            }
-
-            interactions.forEach((item) => {
-                const status = item.status || 'Novo';
-                const color = statusColors[status] || 'bg-secondary';
-                const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
-                const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
-                
-                let modificadoPorHtml = '';
-                if (item.status_modificado_por_nome) {
-                    modificadoPorHtml = `
-                        <div class="mt-2 border-top border-secondary pt-2">
-                            <small class="text-info">
-                                <i class="bi bi-person-check-fill me-1"></i>
-                                Última alteração por: ${item.status_modificado_por_nome}
-                            </small>
-                        </div>`;
-                }
-                const accordionItem = document.createElement('div');
-                accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
-                accordionItem.innerHTML = `
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed bg-dark text-light d-flex" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${item.id}">
-                            <div class="flex-grow-1 d-flex align-items-center"><span class="badge ${color} me-3" style="width: 110px;">${status}</span><span class="me-3 fw-bold">${item.nome}</span> - <span class="ms-2">${interactionType}</span></div>
-                            <span class="text-muted small">${createdDate}</span>
-                        </button>
-                    </h2>
-                    <div id="collapse-${item.id}" class="accordion-collapse collapse" data-bs-parent="#interactionsAccordion">
-                        <div class="accordion-body border-top border-secondary">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <h5 class="mb-3">Mensagem do Cliente</h5>
-                                    <p class="bg-secondary bg-opacity-10 p-3 rounded">${item.mensagem}</p>
-                                </div>
-                                <div class="col-md-4">
-                                    <h5 class="mb-3">Informações de Contato</h5>
-                                    <ul class="list-unstyled">
-                                        <li><i class="bi bi-envelope-fill me-2"></i><a href="mailto:${item.email}" class="text-light text-decoration-none">${item.email}</a></li>
-                                        <li><i class="bi bi-telephone-fill me-2"></i>${item.telefone || 'Não informado'}</li>
-                                    </ul>
-                                    <hr>
-                                    <h5 class="mb-3">Ações</h5>
-                                    <select class="form-select form-select-sm bg-dark text-light border-secondary status-select mb-3" data-interaction-id="${item.id}">
-                                        <option value="null" ${!item.status ? 'selected' : ''}>-- Novo (Sem Status) --</option>
-                                        <option value="Pendente" ${status === 'Pendente' ? 'selected' : ''}>Marcar como Pendente</option>
-                                        <option value="Em Processo" ${status === 'Em Processo' ? 'selected' : ''}>Marcar como Em Processo</option>
-                                        <option value="Concluída" ${status === 'Concluída' ? 'selected' : ''}>Marcar como Concluída</option>
-                                        <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Marcar como Cancelada</option>
-                                    </select>
-                                    ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
-                                </div>
-                            </div>
-                            ${modificadoPorHtml} 
-                        </div>
-                    </div>`;
-                accordionContainer.appendChild(accordionItem);
-            });
+        const accordionContainer = document.getElementById('interactionsAccordion');
+        accordionContainer.innerHTML = '';
+        if (interactions.length === 0) {
+            accordionContainer.innerHTML = `<p class="text-muted mt-3 text-center">Nenhuma interação encontrada com os filtros atuais.</p>`;
+            return;
         }
+
+        interactions.forEach((item) => {
+            const status = item.status || 'Novo';
+            const color = statusColors[status] || 'bg-secondary';
+            const interactionType = item.tipo_interacao === 'orcamento' ? `Orçamento: <strong>${item.servico_nome || ''}</strong>` : '<strong>Suporte Geral</strong>';
+            const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
+            const displayEmail = item.usuarios?.email || item.email || 'Não informado';
+            const displayTelefone = item.usuarios?.telefone || item.telefone || 'Não informado';
+            
+            // ADICIONADO: Bloco para criar o 'badge' da equipe
+            const equipeHtml = item.equipe_solicitada ? `<span class="badge fw-normal bg-info bg-opacity-25 text-info-emphasis ms-2">${item.equipe_solicitada}</span>` : '';
+
+            let modificadoPorHtml = '';
+            if (item.status_modificado_por_nome) {
+                modificadoPorHtml = `
+                    <div class="mt-2 border-top border-secondary pt-2">
+                        <small class="text-info">
+                            <i class="bi bi-person-check-fill me-1"></i>
+                            Última alteração por: ${item.status_modificado_por_nome}
+                        </small>
+                    </div>`;
+            }
+            const accordionItem = document.createElement('div');
+            accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
+            
+            // A variável ${equipeHtml} foi adicionada ao lado do tipo de interação
+            accordionItem.innerHTML = `
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-dark text-light d-flex" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${item.id}">
+                        <div class="flex-grow-1 d-flex align-items-center">
+                            <span class="badge ${color} me-3" style="width: 110px;">${status}</span>
+                            <span class="me-3 fw-bold">${item.nome} (ID: ${item.id})</span> - 
+                            <span class="ms-2">${interactionType}</span>
+                            ${equipeHtml}
+                        </div>
+                        <span class="text-muted small">${createdDate}</span>
+                    </button>
+                </h2>
+                <div id="collapse-${item.id}" class="accordion-collapse collapse" data-bs-parent="#interactionsAccordion">
+                    <div class="accordion-body border-top border-secondary">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5 class="mb-3">Mensagem do Cliente</h5>
+                                <p class="bg-secondary bg-opacity-10 p-3 rounded">${item.mensagem}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <h5 class="mb-3">Informações de Contato</h5>
+                                <ul class="list-unstyled">
+                                    <li><i class="bi bi-envelope-fill me-2"></i><a href="mailto:${displayEmail}" class="text-light text-decoration-none">${displayEmail}</a></li>
+                                    <li><i class="bi bi-telephone-fill me-2"></i>${displayTelefone}</li>
+                                </ul>
+                                <hr>
+                                <h5 class="mb-3">Ações</h5>
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary status-select mb-3" data-interaction-id="${item.id}">
+                                    <option value="null" ${!item.status ? 'selected' : ''}>-- Novo (Sem Status) --</option>
+                                    <option value="Pendente" ${status === 'Pendente' ? 'selected' : ''}>Marcar como Pendente</option>
+                                    <option value="Em Processo" ${status === 'Em Processo' ? 'selected' : ''}>Marcar como Em Processo</option>
+                                    <option value="Concluída" ${status === 'Concluída' ? 'selected' : ''}>Marcar como Concluída</option>
+                                    <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Marcar como Cancelada</option>
+                                </select>
+                                ${currentUserId === SUPER_ADMIN_USER_ID ? `<button class="btn btn-sm btn-outline-danger w-100 delete-interaction-btn" data-interaction-id="${item.id}"><i class="bi bi-trash-fill me-2"></i>Excluir Permanentemente</button>` : ''}
+                            </div>
+                        </div>
+                        ${modificadoPorHtml} 
+                    </div>
+                </div>`;
+            accordionContainer.appendChild(accordionItem);
+        });
+    }
         
         function handleInteractionSearch() {
-            const searchTerm = document.getElementById('interaction-search-input').value.toLowerCase();
+            const searchTerm = document.getElementById('interaction-search-input').value.toLowerCase().trim();
             const currentFilter = getActiveInteractionFilter();
             
             const filteredData = allInteractions.filter(item => {
@@ -758,22 +778,45 @@
                 else if (currentFilter === 'concluidas') matchesFilter = status === 'Concluída';
                 else if (currentFilter === 'canceladas') matchesFilter = status === 'Cancelada';
 
+                // Se não corresponder ao filtro de status (Ativos, Concluídas, etc.), já remove o item.
                 if (!matchesFilter) return false;
 
-                const matchesSearch = searchTerm ? (
-                    item.nome.toLowerCase().includes(searchTerm) ||
-                    item.email.toLowerCase().includes(searchTerm) ||
-                    (item.telefone || '').includes(searchTerm)
-                ) : true;
-
-                return matchesSearch;
+                // Se a barra de pesquisa estiver vazia, mostra todos os itens que passaram no filtro de status.
+                if (!searchTerm) {
+                    return true;
+                }
+                
+                // Lógica para pesquisar por ID (ex: "id 15" ou "id #15")
+                if (searchTerm.startsWith('id ') || searchTerm.startsWith('id #')) {
+                    // Remove o "id " ou "id #" e pega apenas o número
+                    const idToSearch = searchTerm.replace('id', '').replace('#', '').trim();
+                    
+                    // Compara o ID do item (convertido para string) com o número pesquisado
+                    return idToSearch ? String(item.id) === idToSearch : false;
+                } 
+                // Se não for uma busca por ID, executa a busca normal por texto
+                else {
+                    return (
+                        item.nome.toLowerCase().includes(searchTerm) ||
+                        (item.usuarios?.email || item.email || '').toLowerCase().includes(searchTerm) ||
+                        (item.usuarios?.telefone || item.telefone || '').includes(searchTerm)
+                    );
+                }
             });
             
             populateInteractionsAccordion(filteredData);
         }
 
         async function renderInteractions(container, initialFilter = 'ativos') {
-            const { data, error } = await supabase.from('interacoes').select('*').order('criado_em', { ascending: false });
+            // A consulta agora inclui um "join" para buscar os dados da tabela 'usuarios'
+            const { data, error } = await supabase
+                .from('interacoes')
+                .select(`
+                    *,
+                    usuarios (email, telefone)
+                `)
+                .order('criado_em', { ascending: false });
+
             if(error) throw error;
             allInteractions = data;
             
@@ -802,63 +845,139 @@
         }
 
         async function renderClients(container) {
-            const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at');
-            if (error) throw error;
-            allClients = data;
+        const { data, error } = await supabase.from('usuarios').select('id, nome_completo, email, telefone, is_admin').order('created_at');
+        if (error) throw error;
+        allClients = data;
+
+        // A estrutura da tabela agora tem uma coluna a mais para o botão de expandir
+        container.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Clientes Cadastrados</h2>
+                <input type="text" id="client-search" class="form-control w-50" placeholder="Pesquisar por nome ou email...">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead><tr><th style="width: 5%;"></th><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr></thead>
+                    <tbody id="clients-table-body"></tbody>
+                </table>
+            </div>`;
+        populateClientTable(allClients);
+        document.getElementById('client-search').addEventListener('input', handleClientSearch);
+    }
+
+        async function renderClientInteractions(userId, container) {
+        container.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"></div>`;
+        try {
+            const { data: interacoes, error } = await supabase
+                .from('interacoes')
+                .select('*')
+                .eq('user_id', userId)
+                .order('criado_em', { ascending: false });
             
-            container.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2>Clientes Cadastrados</h2>
-                    <input type="text" id="client-search" class="form-control w-50" placeholder="Pesquisar por nome ou email...">
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-hover">
-                        <thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Admin</th><th>Ações</th></tr></thead>
-                        <tbody id="clients-table-body"></tbody>
-                    </table>
-                </div>`;
-            populateClientTable(allClients);
-            document.getElementById('client-search').addEventListener('input', handleClientSearch);
+            if (error) throw error;
+
+            if (interacoes.length === 0) {
+                container.innerHTML = '<p class="text-muted small">Nenhuma interação encontrada.</p>';
+                return;
+            }
+
+            const interacoesHtml = interacoes.map(i => {
+                const status = i.status || 'Novo';
+                const colorClass = statusColors[status] || 'bg-secondary';
+                let reasonHtml = '';
+
+                if (status === 'Cancelada' && i.motivo_recusa) {
+                    reasonHtml = `<div class="mt-2 text-danger small" style="opacity: 0.8;"><i class="bi bi-x-circle me-1"></i><strong>Motivo:</strong> ${i.motivo_recusa}</div>`;
+                }
+
+                return `
+                <li class="list-group-item bg-dark text-light border-secondary">
+                    <div class="d-flex justify-content-between">
+                        <strong>${i.tipo_interacao === 'orcamento' ? 'Orçamento' : 'Suporte'} #${i.id}</strong>
+                        <span class="badge ${colorClass}">${status}</span>
+                    </div>
+                    <small class="text-muted">${new Date(i.criado_em).toLocaleDateString('pt-BR')}</small>
+                    ${reasonHtml}
+                </li>
+                `}).join('');
+            container.innerHTML = `<ul class="list-group">${interacoesHtml}</ul>`;
+
+        } catch (error) {
+            console.error("Erro ao buscar interações do cliente:", error);
+            container.innerHTML = `<p class="text-danger small">Erro ao carregar interações.</p>`;
         }
+    }
 
         function populateClientTable(clients) {
-            const tableBody = document.getElementById('clients-table-body');
-            tableBody.innerHTML = '';
-            const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
+        const tableBody = document.getElementById('clients-table-body');
+        tableBody.innerHTML = '';
+        const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
 
-            clients.forEach(c => {
-                const row = document.createElement('tr');
-                const adminCell = document.createElement('td');
-                const actionsCell = document.createElement('td');
+        clients.forEach(c => {
+            const mainRow = document.createElement('tr');
+            const detailsRow = document.createElement('tr');
+            detailsRow.classList.add('details-row'); // Classe para estilização opcional
 
-                if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
-                    const adminButton = document.createElement('button');
-                    adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
-                    adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
-                    adminButton.dataset.userId = c.id;
-                    adminButton.dataset.isAdmin = c.is_admin;
-                    adminCell.appendChild(adminButton);
-                } else {
-                    const adminBadge = document.createElement('span');
-                    adminBadge.textContent = c.is_admin ? 'Sim' : 'Não';
-                    adminBadge.className = `badge p-2 ${c.is_admin ? 'bg-success' : 'bg-secondary'}`;
-                    adminCell.appendChild(adminBadge);
-                }
+            // Linha principal com os dados do cliente
+            mainRow.innerHTML = `
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary view-client-details-btn" type="button" data-bs-toggle="collapse" data-bs-target="#details-client-${c.id}" data-user-id="${c.id}">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </td>
+                <td>${c.nome_completo || 'N/A'}</td>
+                <td>${c.email}</td>
+                <td>${c.telefone || 'N/A'}</td>
+                <td></td> <td></td> `;
 
-                if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
-                    deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
-                    deleteButton.dataset.userId = c.id;
-                    actionsCell.appendChild(deleteButton);
-                }
-                
-                row.innerHTML = `<td>${c.nome_completo || 'N/A'}</td><td>${c.email}</td><td>${c.telefone || 'N/A'}</td>`;
-                row.appendChild(adminCell);
-                row.appendChild(actionsCell);
-                tableBody.appendChild(row);
-            });
-        }
+            // Células de Admin e Ações são adicionadas dinamicamente para manter a lógica
+            const adminCell = mainRow.cells[4];
+            const actionsCell = mainRow.cells[5];
+
+            if (isSuperAdmin && c.id !== SUPER_ADMIN_USER_ID) {
+                const adminButton = document.createElement('button');
+                adminButton.textContent = c.is_admin ? 'Sim' : 'Não';
+                adminButton.className = `btn btn-sm toggle-admin-btn ${c.is_admin ? 'btn-success' : 'btn-outline-secondary'}`;
+                adminButton.dataset.userId = c.id;
+                adminButton.dataset.isAdmin = c.is_admin;
+                adminCell.appendChild(adminButton);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-sm btn-danger delete-client-btn';
+                deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteButton.dataset.userId = c.id;
+                actionsCell.appendChild(deleteButton);
+            } else {
+                const adminBadge = document.createElement('span');
+                adminBadge.textContent = c.is_admin ? 'Sim' : 'Não';
+                adminBadge.className = `badge p-2 ${c.is_admin ? 'bg-success' : 'bg-secondary'}`;
+                adminCell.appendChild(adminBadge);
+            }
+
+            // Linha de detalhes, que começa escondida (collapsed)
+            detailsRow.innerHTML = `
+                <td colspan="6">
+                    <div class="collapse" id="details-client-${c.id}">
+                        <div class="details-content p-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="bi bi-box-seam-fill me-2"></i>Últimos Pedidos</h6>
+                                    <div id="pedidos-cliente-${c.id}"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="bi bi-headset me-2"></i>Últimas Interações</h6>
+                                    <div id="interacoes-cliente-${c.id}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            `;
+
+            tableBody.appendChild(mainRow);
+            tableBody.appendChild(detailsRow);
+        });
+    }
         
         function handleClientSearch(event) {
             const searchTerm = event.target.value.toLowerCase();
@@ -995,7 +1114,65 @@
                     else loadTabContent('v-pills-clients');
                 }
             }
+
+            const viewDetailsBtn = e.target.closest('.view-client-details-btn');
+                if (viewDetailsBtn) {
+                const userId = viewDetailsBtn.dataset.userId;
+                const ordersContainer = document.getElementById(`pedidos-cliente-${userId}`);
+                const interactionsContainer = document.getElementById(`interacoes-cliente-${userId}`);
+                
+                // Carrega os dados apenas se os contêineres estiverem vazios (para não recarregar toda vez)
+                if (ordersContainer && ordersContainer.innerHTML === '') {
+                    renderClientOrders(userId, ordersContainer);
+                }
+                if (interactionsContainer && interactionsContainer.innerHTML === '') {
+                    renderClientInteractions(userId, interactionsContainer);
+                }
+            }
         });
+
+        async function renderClientOrders(userId, container) {
+        container.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"></div>`;
+        try {
+            const { data: pedidos, error } = await supabase
+                .from('pedidos')
+                .select(`*, itens_pedido(quantidade, produtos(name))`)
+                .eq('user_id', userId)
+                .order('criado_em', { ascending: false });
+            if (error) throw error;
+
+            if (pedidos.length === 0) {
+                container.innerHTML = '<p class="text-muted small">Nenhum pedido encontrado.</p>';
+                return;
+            }
+
+            // Mapa de cores para os status dos pedidos
+            const orderStatusMap = {
+                'Pendente': 'bg-warning text-dark',
+                'Aceito': 'bg-light text-dark',
+                'Enviado': 'bg-primary',
+                'Entregue': 'bg-success',
+                'Recusado': 'bg-danger',
+                'Devolução': 'bg-dark text-light'
+            };
+
+            const pedidosHtml = pedidos.map(p => {
+                const colorClass = orderStatusMap[p.status] || 'bg-secondary';
+                return `
+                <li class="list-group-item bg-dark text-light border-secondary">
+                    <div class="d-flex justify-content-between">
+                        <strong>Pedido #${p.id}</strong>
+                        <span class="badge ${colorClass}">${p.status}</span>
+                    </div>
+                    <small class="text-muted">${new Date(p.criado_em).toLocaleDateString('pt-BR')}</small>
+                </li>
+            `}).join('');
+            container.innerHTML = `<ul class="list-group">${pedidosHtml}</ul>`;
+
+        } catch (error) {
+            container.innerHTML = `<p class="text-danger small">Erro ao carregar pedidos.</p>`;
+        }
+    }
         
         tabContent.addEventListener('change', async (e) => {
             // Lógica para a aba de PEDIDOS

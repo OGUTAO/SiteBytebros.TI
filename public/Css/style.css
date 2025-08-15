@@ -11,6 +11,7 @@
     --bs-danger: #dc3545;
     --bs-light: #f8f9fa;
     --bs-dark: #212529;
+    --bs-cinza: #25053ffa;
     --bs-font-sans-serif: 'Poppins', sans-serif;
     --bytebros-accent: #ffa500;
 }
@@ -22,6 +23,7 @@
     --bs-primary: #60a5fa;
     --bs-light: #2d3748;
     --bs-dark: #e2e8f0;
+    --bs-cinza: #25053ffa;
     --bs-secondary: #a0aec0;
 }
 
@@ -59,6 +61,46 @@ body {
     color: var(--bs-light);
 }
 
+.footer-optimized {
+  background-color: var(--bs-tertiary-bg);
+  border-top: 1px solid var(--bs-border-color-translucent);
+  padding: 40px 0;
+  color: var(--bs-secondary-color);
+}
+
+.footer-optimized h5 {
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: var(--bs-body-color);
+}
+
+.footer-optimized .nav-link {
+  padding: 5px 0;
+  color: var(--bs-secondary-color);
+  transition: color 0.3s;
+}
+
+.footer-optimized .nav-link:hover {
+  color: var(--bs-primary);
+}
+
+.footer-optimized .social-links a {
+  font-size: 1.5rem;
+  margin-right: 15px;
+  color: var(--bs-secondary-color);
+  transition: color 0.3s;
+}
+
+.footer-optimized .social-links a:hover {
+  color: var(--bs-primary);
+}
+
+.footer-bottom {
+  border-top: 1px solid var(--bs-border-color-translucent);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
 /* Página de Serviços */
 .service-detail-img {
     max-height: 400px;
@@ -74,6 +116,7 @@ body {
     background-color: var(--bs-light);
     border-radius: 10px;
 }
+
 
 /* Loja de Peças */
 .product-card .card-img-top {
@@ -94,6 +137,25 @@ body {
 #v-pills-tab .nav-link {
     justify-content: flex-start; /* Alinha o conteúdo (ícone + texto) à esquerda */
     text-align: left; /* Garante que o texto dentro do botão também alinhe à esquerda */
+}
+
+.modal-subtitle {
+    font-style: italic; /* Adiciona um estilo itálico */
+    font-size: 1.1rem; /* Aumenta um pouco o tamanho da fonte */
+    margin-top: 1.5rem; /* Margem superior para separar da imagem */
+    margin-bottom: 1.5rem; /* Margem inferior para separar do texto */
+    color: var(--bs-primary); /* Pode usar uma cor diferente */
+}
+
+.conteudo-noticia {
+    /* Garante que o texto se adapte ao contêiner */
+    word-wrap: break-word; 
+
+    /* Uma opção mais moderna e recomendada que faz a mesma coisa */
+    overflow-wrap: break-word; 
+
+    /* Mantém a formatação de espaços e quebras de linha do banco de dados */
+    white-space: pre-wrap; 
 }
 
 /* Estilos para o carrossel de serviços na página inicial */
@@ -147,4 +209,21 @@ body {
 }
 .carousel-control-prev-icon:hover, .carousel-control-next-icon:hover {
     opacity: 1;
+}
+
+/* Animação para destacar o produto vindo da página de favoritos */
+.product-highlight {
+    animation: highlight-glow 2s ease-out;
+}
+
+@keyframes highlight-glow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 25px 12px rgba(0, 123, 255, 0.2);
+    }
+    100% {
+        box-shadow: none;
+    }
 }

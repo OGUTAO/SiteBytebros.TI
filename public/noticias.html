@@ -76,6 +76,7 @@
             background: var(--bs-primary);
             width: 0%;
         }
+        
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -259,9 +260,10 @@
             
             document.getElementById('newsModalBody').innerHTML = `
                 ${renderImageWithSource(item, 'modal-news-img')}
-                <h6 class="text-muted mt-2">${item.subtitulo || ''}</h6>
-                <p style="white-space: pre-wrap;">${item.conteudo}</p>
+                <h6 class="modal-subtitle">${item.subtitulo || ''}</h6>
+                <p class="conteudo-noticia" style="white-space: pre-wrap;">${item.conteudo}</p>
             `;
+            
 
             document.getElementById('newsModalFooter').innerHTML = `
                 <div>

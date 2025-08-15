@@ -7,10 +7,16 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
-    <script>
-        // Injeta a URL da API a partir do Netlify
-        window.API_BASE_URL = "${API_ENDPOINT}";
-    </script>
+    <style>
+        .status-badge {
+            font-size: 0.8em;
+            padding: 0.4em 0.7em;
+        }
+        .interaction-message {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+    </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -18,43 +24,48 @@
         <div class="container">
             <a class="navbar-brand" href="index.html">
                 <span class="logo-text">BYTE BROS.TI</span>
+                <div class="logo-subtext">Soluções Tecnológicas</div>
             </a>
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="index.html">Menu Principal</a></li>
-            </ul>
+            <div class="d-flex align-items-center ms-auto">
+                 <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Menu Principal</a></li>
+                    <li class="nav-item"><a class="nav-link" href="lojapecascliente.html">Ir para Loja</a></li>
+                </ul>
+                <button class="btn btn-sm ms-3" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
+            </div>
         </div>
     </nav>
 
     <main class="container my-5">
         <div class="text-center mb-5">
-            <h1 class="display-5">Meus Pedidos e Histórico</h1>
-            <p class="lead text-muted">Acompanhe seus pedidos da loja e outras interações conosco.</p>
+            <h1 class="display-5">Minhas Atividades</h1>
+            <p class="lead text-muted">Acompanhe seus pedidos da loja e suas solicitações de serviço em um só lugar.</p>
         </div>
 
         <div class="row justify-content-center">
             <div class="col-lg-10">
-                <div class="accordion" id="pedidosAccordion">
+                <div class="accordion" id="activitiesAccordion">
                     
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePedidosAtivos" aria-expanded="true">
-                                <i class="bi bi-box-seam-fill me-2"></i>Pedidos Ativos na Loja
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePedidos">
+                                <i class="bi bi-box-seam-fill me-2"></i>Pedidos da Loja
                             </button>
                         </h2>
-                        <div id="collapsePedidosAtivos" class="accordion-collapse collapse show" data-bs-parent="#pedidosAccordion">
-                            <div class="accordion-body" id="lista-pedidos-ativos">
+                        <div id="collapsePedidos" class="accordion-collapse collapse show" data-bs-parent="#activitiesAccordion">
+                            <div class="accordion-body" id="lista-pedidos">
                                 </div>
                         </div>
                     </div>
 
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico">
-                                <i class="bi bi-clock-history me-2"></i>Histórico de Pedidos e Interações
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseInteracoes">
+                                <i class="bi bi-headset me-2"></i>Orçamentos e Suporte
                             </button>
                         </h2>
-                        <div id="collapseHistorico" class="accordion-collapse collapse" data-bs-parent="#pedidosAccordion">
-                            <div class="accordion-body" id="lista-historico-pedidos">
+                        <div id="collapseInteracoes" class="accordion-collapse collapse" data-bs-parent="#activitiesAccordion">
+                            <div class="accordion-body" id="lista-interacoes">
                                 </div>
                         </div>
                     </div>
@@ -65,67 +76,164 @@
 
     <footer class="footer mt-auto py-3">
         <div class="container text-center">
-            <p>&copy; 2025 Byte Bros.TI. Todos os direitos reservados.</p>
+            <p>&copy; 2025 ByteBrosTI. Todos os direitos reservados.</p>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="js/main.js"></script>
     <script type="module">
-        import { orderService, supportService } from './js/api.js';
+        import { supabase } from './js/supabase-client.js';
 
-        const listaPedidosAtivos = document.getElementById("lista-pedidos-ativos");
-        const listaHistoricoPedidos = document.getElementById("lista-historico-pedidos");
-        
-        const spinner = `<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+        const listaPedidosContainer = document.getElementById("lista-pedidos");
+        const listaInteracoesContainer = document.getElementById("lista-interacoes");
+        const spinner = `<div class="text-center p-4"><div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div></div>`;
 
-        function criarItemPedido(pedido) {
-            const dataFormatada = new Date(pedido.data_pedido).toLocaleDateString('pt-BR');
+        // *** FUNÇÃO ATUALIZADA ***
+        function criarCardPedido(pedido) {
+            const dataFormatada = new Date(pedido.criado_em).toLocaleDateString('pt-BR');
             const valorTotal = parseFloat(pedido.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             
+            const statusMap = {
+                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
+                'Aceito': { bg: 'bg-info text-dark', text: 'Aceito' },
+                'Enviado': { bg: 'bg-primary', text: 'Enviado' },
+                'Entregue': { bg: 'bg-success', text: 'Entregue' },
+                'Recusado': { bg: 'bg-danger', text: 'Recusado' },
+                'Devolução': { bg: 'bg-secondary', text: 'Devolução' }
+            };
+            const statusInfo = statusMap[pedido.status] || { bg: 'bg-secondary', text: pedido.status };
+
+            const itensHtml = pedido.itens_pedido.map(item => 
+                `<li>${item.quantidade}x ${item.produtos.name} - ${parseFloat(item.valor_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</li>`
+            ).join('');
+
+            // Bloco de código para adicionar o motivo da recusa, se houver
+            let motivoRecusaHtml = '';
+            if (pedido.status === 'Recusado' && pedido.motivo_recusa) {
+                motivoRecusaHtml = `
+                <div class="card-footer bg-transparent border-danger-subtle">
+                    <p class="mb-0 text-danger"><i class="bi bi-x-circle-fill me-2"></i><strong>Motivo da Recusa:</strong> ${pedido.motivo_recusa}</p>
+                </div>
+                `;
+            }
+
             return `
-                <div class="list-group-item list-group-item-action flex-column align-items-start">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">Pedido #${pedido.id}</h5>
-                        <small>${dataFormatada}</small>
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Pedido #${pedido.id}</strong>
+                        <span class="badge ${statusInfo.bg} status-badge">${statusInfo.text}</span>
                     </div>
-                    <p class="mb-1"><strong>Status:</strong> <span class="badge bg-warning text-dark">${pedido.status}</span></p>
-                    <p class="mb-1"><strong>Total:</strong> ${valorTotal}</p>
-                    <small><strong>Endereço:</strong> ${pedido.endereco_entrega || 'N/A'}</small>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="card-subtitle mb-2 text-muted">Itens:</h6>
+                                <ul class="list-unstyled" style="font-size: 0.9em;">${itensHtml}</ul>
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <p class="mb-1"><strong>Data:</strong> ${dataFormatada}</p>
+                                <p class="mb-0"><strong>Total:</strong> ${valorTotal}</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${motivoRecusaHtml}
                 </div>
             `;
         }
         
+        function criarCardInteracao(interacao) {
+             const dataFormatada = new Date(interacao.criado_em).toLocaleDateString('pt-BR');
+             const tipo = interacao.tipo_interacao === 'orcamento' ? 'Orçamento' : 'Suporte';
+             const servico = interacao.servico_nome ? `(${interacao.servico_nome})` : '';
+
+             const statusMap = {
+                'Novo': { bg: 'bg-light text-dark', text: 'Novo' },
+                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
+                'Em Processo': { bg: 'bg-info text-dark', text: 'Em Processo' },
+                'Concluída': { bg: 'bg-success', text: 'Concluída' },
+                'Cancelada': { bg: 'bg-danger', text: 'Cancelada' }
+            };
+            const statusInfo = statusMap[interacao.status] || { bg: 'bg-light text-dark', text: 'Novo' };
+
+             return `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${tipo} ${servico}</h6>
+                        <small>${dataFormatada}</small>
+                    </div>
+                    <p class="mb-1 text-muted interaction-message" style="font-size: 0.9em;">${interacao.mensagem}</p>
+                    <small><strong>Status:</strong> <span class="badge ${statusInfo.bg} status-badge">${statusInfo.text}</span></small>
+                </div>
+             `;
+        }
+        
         async function carregarDados() {
-            if (!localStorage.getItem('userToken')) {
-                listaPedidosAtivos.innerHTML = '<div class="alert alert-warning">Você precisa estar logado para ver seus pedidos.</div>';
+            listaPedidosContainer.innerHTML = spinner;
+            listaInteracoesContainer.innerHTML = spinner;
+
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                const loginMessage = '<div class="alert alert-warning">Você precisa estar logado para ver suas atividades. <a href="login.html">Faça Login</a>.</div>';
+                listaPedidosContainer.innerHTML = loginMessage;
+                listaInteracoesContainer.innerHTML = loginMessage;
                 return;
             }
 
-            listaPedidosAtivos.innerHTML = spinner;
-            listaHistoricoPedidos.innerHTML = spinner;
-
             try {
-                const pedidos = await orderService.getOrders();
-                const pedidosAtivos = pedidos.filter(p => p.status !== 'Entregue' && p.status !== 'Concluído');
-                const historico = pedidos.filter(p => p.status === 'Entregue' || p.status === 'Concluído');
+                const { data: pedidos, error } = await supabase
+                    .from('pedidos')
+                    .select(`
+                        *,
+                        itens_pedido (
+                            quantidade,
+                            valor_unitario,
+                            produtos (name)
+                        )
+                    `)
+                    .eq('user_id', session.user.id)
+                    .order('criado_em', { ascending: false });
                 
-                if (pedidosAtivos.length > 0) {
-                    listaPedidosAtivos.innerHTML = '<div class="list-group">' + pedidosAtivos.map(criarItemPedido).join('') + '</div>';
+                if (error) throw error;
+                
+                if (pedidos.length > 0) {
+                    listaPedidosContainer.innerHTML = pedidos.map(criarCardPedido).join('');
                 } else {
-                    listaPedidosAtivos.innerHTML = '<p class="text-muted text-center">Nenhum pedido ativo no momento.</p>';
+                    listaPedidosContainer.innerHTML = '<p class="text-muted text-center">Nenhum pedido da loja encontrado.</p>';
                 }
-
-                if (historico.length > 0) {
-                    listaHistoricoPedidos.innerHTML = '<div class="list-group">' + historico.map(criarItemPedido).join('') + '</div>';
-                } else {
-                    listaHistoricoPedidos.innerHTML = '<p class="text-muted text-center">Nenhum pedido no histórico.</p>';
-                }
-
             } catch (error) {
-                listaPedidosAtivos.innerHTML = `<div class="alert alert-danger">Erro ao carregar pedidos: ${error.message}</div>`;
-                listaHistoricoPedidos.innerHTML = `<div class="alert alert-danger">Erro ao carregar histórico: ${error.message}</div>`;
+                listaPedidosContainer.innerHTML = `<div class="alert alert-danger">Erro ao carregar pedidos: ${error.message}</div>`;
             }
+            
+            try {
+                const { data: interacoes, error } = await supabase
+                    .from('interacoes')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .order('criado_em', { ascending: false });
+
+                if (error) throw error;
+
+                if (interacoes.length > 0) {
+                    listaInteracoesContainer.innerHTML = '<div class="list-group">' + interacoes.map(criarCardInteracao).join('') + '</div>';
+                } else {
+                    listaInteracoesContainer.innerHTML = '<p class="text-muted text-center">Nenhuma solicitação de orçamento ou suporte encontrada.</p>';
+                }
+            } catch (error) {
+                 listaInteracoesContainer.innerHTML = `<div class="alert alert-danger">Erro ao carregar interações: ${error.message}</div>`;
+            }
+        }
+        
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+        }
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
         }
 
         carregarDados();

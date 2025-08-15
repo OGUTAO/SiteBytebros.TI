@@ -23,7 +23,7 @@
             <div class="col-lg-8">
                 <div class="text-center mb-4">
                     <h1><i class="bi bi-credit-card"></i> Pagamento</h1>
-                    <p class="lead text-muted">Selecione a forma de pagamento e preencha os dados para concluir seu pedido.</p>
+                    <p class="lead text-muted">Selecione a forma de pagamento para concluir seu pedido.</p>
                 </div>
 
                 <div class="card shadow-sm">
@@ -95,6 +95,21 @@
             });
         });
 
+        // FUNÇÃO: Atualiza o estoque no banco de dados
+        async function updateStock(cart) {
+            for (const item of cart) {
+                // 'rpc' chama uma função no banco de dados.
+                const { error } = await supabase.rpc('update_stock', {
+                    p_product_id: item.id,
+                    p_quantity_sold: item.quantity
+                });
+
+                if (error) {
+                    console.error(`Falha ao atualizar estoque para o produto ID ${item.id}:`, error.message);
+                }
+            }
+        }
+
         confirmarPagamentoBtn.addEventListener('click', async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
@@ -110,22 +125,36 @@
                 return;
             }
             
+            // *** ALTERAÇÃO PRINCIPAL AQUI ***
+            // Pega o objeto de endereço do localStorage
+            const deliveryAddressString = localStorage.getItem('deliveryAddress');
+            if (!deliveryAddressString) {
+                alert('Endereço de entrega não encontrado. Por favor, volte ao carrinho e preencha o endereço.');
+                window.location.href = 'carrinho.html';
+                return;
+            }
+            const deliveryAddress = JSON.parse(deliveryAddressString);
+
             const btn = confirmarPagamentoBtn;
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Finalizando...';
 
             try {
+                // 1. CALCULA O TOTAL
                 const subtotal = cart.reduce((acc, item) => acc + (item.value * item.quantity), 0);
                 const frete = 25.50;
                 
+                // 2. MONTA OS DADOS DO PEDIDO COM OS CAMPOS DE ENDEREÇO SEPARADOS
                 const pedidoData = {
                     user_id: session.user.id,
                     valor_total: subtotal + frete,
-                    endereco_entrega: localStorage.getItem('enderecoEntrega') || 'Endereço não informado',
                     forma_pagamento: formaPagamentoSelecionada,
-                    status: 'Pendente'
+                    status: 'Pendente',
+                    // Adiciona todos os campos do objeto de endereço ao objeto do pedido
+                    ...deliveryAddress 
                 };
 
+                // 3. INSERE O PEDIDO NO BANCO
                 const { data: pedidoResult, error: pedidoError } = await supabase
                     .from('pedidos')
                     .insert(pedidoData)
@@ -134,17 +163,21 @@
 
                 if (pedidoError) throw pedidoError;
 
+                // 4. MONTA E INSERE OS ITENS DO PEDIDO
                 const itensDoPedido = cart.map(item => ({
                     pedido_id: pedidoResult.id,
                     produto_id: item.id,
                     quantidade: item.quantity,
                     valor_unitario: item.value
                 }));
-
+                
                 const { error: itensError } = await supabase.from('itens_pedido').insert(itensDoPedido);
                 if (itensError) throw itensError;
 
-                // Chamando a função de e-mail que você publicou
+                // 5. ATUALIZA O ESTOQUE
+                await updateStock(cart);
+                
+                // 6. ENVIA O E-MAIL DE CONFIRMAÇÃO
                 try {
                     await supabase.functions.invoke('send-email', {
                         body: { 
@@ -154,11 +187,12 @@
                         }
                     });
                 } catch (e) {
-                    console.error("Aviso: Falha ao enviar e-mail de confirmação:", e.message);
+                    console.warn("Aviso: Falha ao enviar e-mail de confirmação:", e.message);
                 }
-
+                
+                // 7. LIMPA O CARRINHO E ENDEREÇO LOCAL E REDIRECIONA
                 localStorage.removeItem('cart');
-                localStorage.removeItem('enderecoEntrega');
+                localStorage.removeItem('deliveryAddress');
                 
                 alert('Pedido realizado com sucesso! Você receberá um e-mail de confirmação em breve.');
                 window.location.href = 'meuspedidos.html';
