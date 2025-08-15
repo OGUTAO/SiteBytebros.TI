@@ -44,12 +44,18 @@
             color: #ffffff;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
         }
-        
-        /* *** MUDANÇA AQUI: NOVA REGRA DE CSS PARA FIXAR A ALTURA DO CARROSSEL *** */
         #serviceCarousel .carousel-inner {
-            /* Isso força a área do carrossel a se alinhar e manter uma altura consistente */
             display: flex;
             align-items: stretch;
+        }
+
+        /* *** MUDANÇA 1: CORREÇÃO PARA AS SETAS DO CARROSSEL NO CELULAR *** */
+        @media (max-width: 768px) {
+            .carousel-control-prev, .carousel-control-next {
+                /* Traz as setas para dentro da área visível em telas pequenas */
+                left: 0.5rem;
+                right: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -72,14 +78,15 @@
                     <li class="nav-item"><a class="nav-link" href="sobrenos.html">Sobre Nós</a></li>
                     <li class="nav-item"><a class="nav-link" href="noticias.html">Notícias</a></li>
                 </ul>
-                <div class="d-flex align-items-center ms-lg-3">
-                    <div id="auth-buttons">
+
+                <ul class="navbar-nav ms-lg-3">
+                    <div id="auth-buttons" class="d-flex align-items-center">
                         <a href="register.html" class="btn btn-secondary btn-sm me-2">Cadastrar</a>
                         <a href="login.html" class="btn btn-primary btn-sm">Fazer Login</a>
                     </div>
-                    <div id="user-profile" class="dropdown d-none">
-                        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle fs-4"></i>
+                    <li id="user-profile" class="nav-item dropdown d-none">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle fs-4 me-2"></i>
                             <span id="user-name"></span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -88,9 +95,11 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" id="logout-button" href="#">Sair</a></li>
                         </ul>
-                    </div>
-                    <button class="btn btn-sm ms-2" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
-                </div>
+                    </li>
+                    <li class="nav-item d-flex align-items-center ms-2">
+                         <button class="btn btn-sm" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
@@ -138,7 +147,7 @@
                     <h5>Navegação</h5>
                     <ul class="nav flex-column">
                         <li class="nav-item"><a href="lojapecascliente.html" class="nav-link">Loja</a></li>
-                        <li class="nav-item"><a href="atendimento.html" class="nav-link">Suporte</a></li>
+                        <li class="nav-item"><a href="servicos.html" class="nav-link">Serviços</a></li>
                         <li class="nav-item"><a href="sobrenos.html" class="nav-link">Sobre Nós</a></li>
                         <li class="nav-item"><a href="noticias.html" class="nav-link">Notícias</a></li>
                     </ul>
@@ -158,7 +167,7 @@
                 </div>
             </div>
             <div class="footer-bottom text-center">
-                <p class="mb-0">&copy; 2025 ByteBrosTI. Todos os direitos reservados. v2.0</p>
+                <p class="mb-0">&copy; 2025 ByteBrosTI. Todos os direitos reservados.</p>
             </div>
         </div>
     </footer>
