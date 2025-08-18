@@ -8,63 +8,49 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
     <style>
-        body { background-color: #212529; }
-        #admin-login-section { min-height: 100vh; }
-        #v-pills-tab .nav-link {
-            justify-content: flex-start; 
-            text-align: left;
-            cursor: pointer;
+        body { 
+            background-color: #212529;
+            overflow-x: hidden;
         }
+
+        #admin-login-section { min-height: 100vh; }
         .stat-card { background-color: #343a40; border-radius: .5rem; padding: 1rem; }
         .accordion-button:not(.collapsed) { background-color: #343a40; color: #fff; }
         .badge-new { background-color: #6f42c1; color: white; } 
+        .presence-indicator { color: #495057; font-size: 1.2em; transition: color 0.3s ease; line-height: 1; }
+        .presence-indicator.online { color: #28a745; text-shadow: 0 0 6px rgba(40, 167, 69, 0.8); }
+        .details-row > td { padding: 0 !important; border: 0; background-color: #2c3034; }
+        .details-content { padding: 1.5rem; }
 
-        /* --- Estilo para o Indicador de Presença --- */
-        .presence-indicator {
-            color: #495057;
-            font-size: 1.2em;
-            transition: color 0.3s ease;
-            line-height: 1;
-        }
-        .presence-indicator.online {
-            color: #28a745;
-            text-shadow: 0 0 6px rgba(40, 167, 69, 0.8);
-        }
+        @media (max-width: 991.98px) {
+            #v-pills-tab {
+                display: flex;
+                flex-direction: row;
+                overflow-x: auto;
+                white-space: nowrap;
+                -ms-overflow-style: none;  
+                scrollbar-width: none;  
+            }
 
-        /* --- Estilos para a Tabela de Pedidos --- */
-        .fixed-table-layout {
-            table-layout: fixed;
-            width: 100%;
-        }
-        .fixed-table-layout th,
-        .fixed-table-layout td {
-            vertical-align: middle;
-            word-wrap: break-word;
-        }
-        
-        /* NOVO: Estilo profissional para pedidos pendentes com borda */
-        .order-pending td:first-child {
-            border-left: 4px solid #ffc107; /* Amarelo do Bootstrap */
-        }
+            #v-pills-tab::-webkit-scrollbar {
+                display: none;
+            }
+            #v-pills-tab .nav-link {
+                flex-shrink: 0; 
+            }
+            
+            .accordion-button {
+                flex-direction: column;
+                align-items: flex-start !important;
+            }
+            .accordion-button .small {
+                margin-top: 8px;
+                margin-left: 0 !important;
+            }
 
-        /* NOVO: Estilo para a linha de detalhes expansível */
-        .details-row > td {
-            padding: 0 !important;
-            border: 0;
-            background-color: #2c3034; /* Cor de fundo para o conteúdo do collapse */
-        }
-        .details-content {
-            padding: 1.5rem;
-        }
-        .details-content strong {
-            color: #adb5bd;
-        }
-        .details-content h5 {
-            color: #ffc107; /* Cor de destaque para os títulos */
-        }
-        .details-content .list-group-item {
-            background-color: #343a40;
-            border-color: #495057;
+            .table-responsive td, .table-responsive th {
+                word-break: break-word;
+            }
         }
     </style>
 </head>
@@ -113,7 +99,7 @@
 
         <div class="container-fluid" style="margin-top: 70px;">
             <div class="row">
-                <div class="col-lg-2">
+                <div class="col-12 col-lg-2 mb-3 mb-lg-0">
                     <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-orders"><i class="bi bi-receipt me-2"></i>Pedidos</button>
@@ -124,7 +110,7 @@
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-team"><i class="bi bi-person-workspace me-2"></i>Equipe</button>
                     </div>
                 </div>
-                <div class="col-lg-10">
+                <div class="col-12 col-lg-10">
                     <div class="tab-content card bg-dark text-light border-secondary p-4" id="v-pills-tabContent">
                         <div class="tab-pane fade show active" id="v-pills-dashboard"></div>
                         <div class="tab-pane fade" id="v-pills-orders"></div>
