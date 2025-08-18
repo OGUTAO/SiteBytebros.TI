@@ -26,8 +26,9 @@
         .details-content { padding: 1.5rem; }
 
         /* Estilos específicos para telas pequenas (celulares) */
+      /* Estilos específicos para telas pequenas (celulares) */
         @media (max-width: 991.98px) {
-            /* Faz o menu lateral (Dashboard, Pedidos, etc.) ser rolável horizontalmente */
+            /* Faz o menu lateral ser rolável horizontalmente */
             #v-pills-tab {
                 display: flex; flex-direction: row; overflow-x: auto; white-space: nowrap;
                 -ms-overflow-style: none; scrollbar-width: none;
@@ -36,22 +37,27 @@
             #v-pills-tab .nav-link { flex-shrink: 0; }
             
 
-            /* --- CORREÇÃO DEFINITIVA PARA AS INTERAÇÕES --- */
-            /* Garante que o botão do acordeão não quebre a linha */
+            /* --- CORREÇÃO FINAL PARA AS INTERAÇÕES (Layout de Tabela) --- */
+            /* 1. Força o acordeão a ter uma largura mínima, o que faz as linhas se esticarem */
+            #v-pills-interactions .accordion {
+                min-width: 700px; /* Ajuste este valor se o conteúdo ainda for cortado */
+            }
+            /* 2. Remove as bordas verticais e arredondadas para parecer uma tabela */
+            #v-pills-interactions .accordion-item {
+                border-left: none;
+                border-right: none;
+                border-radius: 0 !important;
+            }
+            /* 3. Remove a borda superior do primeiro item e a inferior do último */
+            #v-pills-interactions .accordion-item:first-of-type .accordion-button {
+                border-top: none;
+            }
+            #v-pills-interactions .accordion-item:last-of-type .accordion-button.collapsed {
+                 border-bottom: none;
+            }
+            /* 4. Garante que o conteúdo do botão não quebre a linha */
             #v-pills-interactions .accordion-button {
-                flex-wrap: nowrap;
-            }
-            /* Seleciona a div principal dentro do botão */
-            #v-pills-interactions .accordion-button > .flex-grow-1 {
-                min-width: 0; /* Permite que o elemento encolha e respeite o overflow */
-                overflow-x: auto; /* ATIVA A ROLAGEM LATERAL INTERNA */
-                white-space: nowrap; /* Mantém o conteúdo em uma linha para rolar */
-                -ms-overflow-style: none;  /* Oculta a barra de rolagem */
-                scrollbar-width: none;
-            }
-            /* Oculta a barra de rolagem no Chrome/Safari */
-            #v-pills-interactions .accordion-button > .flex-grow-1::-webkit-scrollbar {
-                display: none;
+                white-space: nowrap;
             }
 
 
@@ -688,8 +694,6 @@
             const createdDate = new Date(item.criado_em).toLocaleString('pt-BR');
             const displayEmail = item.usuarios?.email || item.email || 'Não informado';
             const displayTelefone = item.usuarios?.telefone || item.telefone || 'Não informado';
-            
-            // ADICIONADO: Bloco para criar o 'badge' da equipe
             const equipeHtml = item.equipe_solicitada ? `<span class="badge fw-normal bg-info bg-opacity-25 text-info-emphasis ms-2">${item.equipe_solicitada}</span>` : '';
 
             let modificadoPorHtml = '';
@@ -705,17 +709,20 @@
             const accordionItem = document.createElement('div');
             accordionItem.className = 'accordion-item bg-dark text-light border-secondary';
             
-            // A variável ${equipeHtml} foi adicionada ao lado do tipo de interação
+            // *** MUDANÇA PRINCIPAL AQUI ***
+            // A data foi movida para dentro da div com "flex-grow-1" para rolar junto com o conteúdo.
+            // A div agora tem "justify-content-between" para criar o espaçamento.
+            // A estrutura do botão foi simplificada e usa 'justify-content-between'
             accordionItem.innerHTML = `
                 <h2 class="accordion-header">
-                    <button class="accordion-button collapsed bg-dark text-light d-flex" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${item.id}">
-                        <div class="flex-grow-1 d-flex align-items-center">
+                    <button class="accordion-button collapsed bg-dark text-light d-flex justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${item.id}">
+                        <div class="d-flex align-items-center" style="white-space: nowrap;">
                             <span class="badge ${color} me-3" style="width: 110px;">${status}</span>
                             <span class="me-3 fw-bold">${item.nome} (ID: ${item.id})</span> - 
                             <span class="ms-2">${interactionType}</span>
                             ${equipeHtml}
                         </div>
-                        <span class="text-muted small">${createdDate}</span>
+                        <span class="text-muted small ms-3">${createdDate}</span>
                     </button>
                 </h2>
                 <div id="collapse-${item.id}" class="accordion-collapse collapse" data-bs-parent="#interactionsAccordion">
@@ -804,16 +811,19 @@
             allInteractions = data;
             
             container.innerHTML = `
-                <h2>Orçamentos e Contatos</h2>
-                <div class="d-flex justify-content-between align-items-center my-4">
-                    <ul class="nav nav-pills">
-                        <li class="nav-item"><button class="nav-link ${initialFilter === 'ativos' ? 'active' : ''}" data-filter="ativos">Ativos</button></li>
-                        <li class="nav-item"><button class="nav-link" data-filter="concluidas">Concluídas</button></li>
-                        <li class="nav-item"><button class="nav-link" data-filter="canceladas">Canceladas</button></li>
-                    </ul>
-                    <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." autocomplete="off">
-                </div>
-                <div class="accordion" id="interactionsAccordion"></div>`;
+            <h2>Orçamentos e Contatos</h2>
+            <div class="d-flex justify-content-between align-items-center my-4">
+                <ul class="nav nav-pills">
+                    <li class="nav-item"><button class="nav-link ${initialFilter === 'ativos' ? 'active' : ''}" data-filter="ativos">Ativos</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="concluidas">Concluídas</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="canceladas">Canceladas</button></li>
+                </ul>
+                <input type="search" id="interaction-search-input" class="form-control w-50" placeholder="Buscar por nome, email, telefone..." autocomplete="off">
+            </div>
+            <div class="table-responsive">
+                <div class="accordion" id="interactionsAccordion"></div>
+            </div>
+        `;
 
             container.querySelectorAll('#v-pills-interactions .nav-pills .nav-link').forEach(pill => {
                 pill.addEventListener('click', (e) => {
