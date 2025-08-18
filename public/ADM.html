@@ -33,28 +33,35 @@
             #v-pills-tab::-webkit-scrollbar { display: none; }
             #v-pills-tab .nav-link { flex-shrink: 0; }
             
-            /* Ajusta o cabeçalho do accordion de Interações para quebrar a linha */
+
+            /* --- CORREÇÃO DEFINITIVA PARA AS INTERAÇÕES --- */
+            /* Garante que o botão do acordeão não quebre a linha */
             #v-pills-interactions .accordion-button {
-                flex-wrap: wrap; /* Permite que os itens quebrem a linha */
-                height: auto; /* Altura automática para acomodar o conteúdo */
+                flex-wrap: nowrap;
             }
-            #v-pills-interactions .accordion-button > div {
-                flex-basis: 100%; /* Ocupa a linha toda, forçando a data para baixo */
-                margin-bottom: 8px;
+            /* Seleciona a div principal dentro do botão */
+            #v-pills-interactions .accordion-button > .flex-grow-1 {
+                min-width: 0; /* Permite que o elemento encolha e respeite o overflow */
+                overflow-x: auto; /* ATIVA A ROLAGEM LATERAL INTERNA */
+                white-space: nowrap; /* Mantém o conteúdo em uma linha para rolar */
+                -ms-overflow-style: none;  /* Oculta a barra de rolagem */
+                scrollbar-width: none;
             }
-            #v-pills-interactions .accordion-button .small {
-                margin-left: 0 !important;
+            /* Oculta a barra de rolagem no Chrome/Safari */
+            #v-pills-interactions .accordion-button > .flex-grow-1::-webkit-scrollbar {
+                display: none;
             }
 
-            /* Força tabelas a não quebrarem o texto, permitindo a rolagem lateral */
+
+            /* Mantém a rolagem lateral para as tabelas */
             .table-responsive th, .table-responsive td {
                 white-space: nowrap;
             }
 
-            /* Corrige o layout da aba "Equipe" para que os itens não vazem */
+            /* Mantém a correção para a aba "Equipe" */
             #v-pills-team .list-group-item {
                 flex-wrap: wrap;
-                gap: 10px; /* Adiciona um espaço entre os itens que quebram a linha */
+                gap: 10px;
             }
         }
     </style>
@@ -823,7 +830,6 @@
         if (error) throw error;
         allClients = data;
 
-        // A estrutura da tabela agora tem uma coluna a mais para o botão de expandir
         container.innerHTML = `
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2>Clientes Cadastrados</h2>
