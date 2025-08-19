@@ -308,16 +308,43 @@
             }
         });
 
-        logoutBtn.addEventListener('click', async () => { 
-            if (presenceChannel) {
-                await presenceChannel.untrack();
-                await supabase.removeChannel(presenceChannel);
-                presenceChannel = null;
+        logoutBtn.addEventListener('click', async () => {
+        // Desativa o botão imediatamente para evitar múltiplos cliques
+            logoutBtn.disabled = true;
+            logoutBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saindo...';
+
+            try {
+                // Tenta remover o usuário do canal de presença, se existir
+                if (presenceChannel) {
+                    await presenceChannel.untrack();
+                    await supabase.removeChannel(presenceChannel);
+                    presenceChannel = null;
+                }
+
+                // Tenta fazer o logout no Supabase
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                    // Se houver um erro, exibe no console e alerta o usuário
+                    console.error('Erro no logout:', error);
+                    alert('Ocorreu um erro ao tentar sair. Por favor, tente novamente.');
+                    // Reativa o botão em caso de erro
+                    logoutBtn.disabled = false;
+                    logoutBtn.innerHTML = 'Sair';
+                } else {
+                    // Se o logout for bem-sucedido, esconde a mensagem de erro e mostra a tela de login
+                    loginError.classList.add('d-none');
+                    loginError.textContent = '';
+                    showLogin();
+                    // Recarrega a página para garantir um estado limpo (opcional, mas recomendado)
+                    window.location.reload();
+                }
+            } catch (e) {
+                console.error('Erro inesperado no processo de logout:', e);
+                alert('Ocorreu um erro inesperado ao sair.');
+                // Garante que o botão seja reativado mesmo em caso de erro inesperado
+                logoutBtn.disabled = false;
+                logoutBtn.innerHTML = 'Sair';
             }
-            await supabase.auth.signOut(); 
-            loginError.classList.add('d-none');
-            loginError.textContent = '';
-            showLogin(); 
         });
 
         document.querySelectorAll('#v-pills-tab button').forEach(tab => {
