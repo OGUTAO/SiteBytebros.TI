@@ -11,8 +11,6 @@
         body { 
             background-color: #212529;
             overflow-x: hidden;
-            padding-top: 80px;
-        
         }
 
         #admin-login-section { min-height: 100vh; }
@@ -25,40 +23,20 @@
         .details-content { padding: 1.5rem; }
 
         /* Estilos específicos para telas pequenas (celulares) */
-      /* Estilos específicos para telas pequenas (celulares) */
         @media (max-width: 991.98px) {
-            /* Faz o menu lateral ser rolável horizontalmente */
-            #v-pills-tab {
-                display: flex; flex-direction: row; overflow-x: auto; white-space: nowrap;
-                -ms-overflow-style: none; scrollbar-width: none;
-            }
-            #v-pills-tab::-webkit-scrollbar { display: none; }
-            #v-pills-tab .nav-link { flex-shrink: 0; }
-            
-
-            /* --- CORREÇÃO FINAL PARA AS INTERAÇÕES (Layout de Tabela) --- */
-            /* 1. Força o acordeão a ter uma largura mínima, o que faz as linhas se esticarem */
-            #v-pills-interactions .accordion {
-                min-width: 700px; /* Ajuste este valor se o conteúdo ainda for cortado */
-            }
-            /* 2. Remove as bordas verticais e arredondadas para parecer uma tabela */
-            #v-pills-interactions .accordion-item {
-                border-left: none;
-                border-right: none;
-                border-radius: 0 !important;
-            }
-            /* 3. Remove a borda superior do primeiro item e a inferior do último */
-            #v-pills-interactions .accordion-item:first-of-type .accordion-button {
-                border-top: none;
-            }
-            #v-pills-interactions .accordion-item:last-of-type .accordion-button.collapsed {
-                 border-bottom: none;
-            }
-            /* 4. Garante que o conteúdo do botão não quebre a linha */
-            #v-pills-interactions .accordion-button {
-                white-space: nowrap;
+            /* Adiciona um espaço no topo para a barra de navegação superior */
+            body {
+                padding-top: 56px; /* Altura da navbar */
             }
 
+            /* --- CORREÇÃO PARA O MENU DE ABAS --- */
+            /* 1. Limita a altura do container do menu */
+            .sidebar-menu-container {
+                max-height: 250px; /* Altura máxima que o menu pode ter antes de rolar */
+                overflow-y: auto;  /* ATIVA A ROLAGEM VERTICAL */
+                border: 1px solid #495057;
+                border-radius: .5rem;
+            }
 
             /* Mantém a rolagem lateral para as tabelas */
             .table-responsive th, .table-responsive td {
@@ -70,8 +48,28 @@
                 flex-wrap: wrap;
                 gap: 10px;
             }
+
+            /* Mantém a correção para a aba "Interações" */
+            .accordion-scroll-container {
+                overflow-x: auto;
+            }
+            #v-pills-interactions .accordion {
+                min-width: 700px;
+            }
+            #v-pills-interactions .accordion-item {
+                border-left: none; border-right: none; border-radius: 0 !important;
+            }
+            #v-pills-interactions .accordion-item:first-of-type .accordion-button {
+                border-top: none;
+            }
+            #v-pills-interactions .accordion-item:last-of-type .accordion-button.collapsed {
+                 border-bottom: none;
+            }
+            #v-pills-interactions .accordion-button {
+                white-space: nowrap;
+            }
         }
-    </style>
+        </style>
 </head>
 <body>
 
@@ -119,14 +117,16 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12 col-lg-2 mb-3 mb-lg-0">
-                    <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-orders"><i class="bi bi-receipt me-2"></i>Pedidos</button>
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-products"><i class="bi bi-box-seam me-2"></i>Produtos</button>
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-news"><i class="bi bi-newspaper me-2"></i>Notícias</button>
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-clients"><i class="bi bi-people me-2"></i>Clientes</button>
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-team"><i class="bi bi-person-workspace me-2"></i>Equipe</button>
+                    <div class="sidebar-menu-container">
+                        <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-orders"><i class="bi bi-receipt me-2"></i>Pedidos</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-products"><i class="bi bi-box-seam me-2"></i>Produtos</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-news"><i class="bi bi-newspaper me-2"></i>Notícias</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-clients"><i class="bi bi-people me-2"></i>Clientes</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-team"><i class="bi bi-person-workspace me-2"></i>Equipe</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-12 col-lg-10">
