@@ -101,6 +101,87 @@ body {
   margin-top: 20px;
 }
 
+/* Rodapé Loja */
+
+.footer-detailed {
+    background-color: #1a1a1a;
+    color: #a6a6a6;
+    font-size: 0.875rem;
+}
+
+[data-bs-theme="dark"] .footer-detailed {
+     background-color: #0c0c0c;
+}
+
+.footer-newsletter {
+    background-color: #0062ab;
+    color: #fff;
+}
+
+[data-bs-theme="dark"] .footer-newsletter {
+    background-color: var(--bs-primary);
+}
+
+.footer-newsletter .form-control {
+    border-radius: 0.25rem;
+    border: none;
+}
+
+.footer-newsletter .btn-primary {
+    background-color: #0d4a84;
+    border-color: #0d4a84;
+    font-weight: 600;
+}
+
+.footer-detailed h5 {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+}
+
+.footer-detailed .list-unstyled li a {
+    color: #a6a6a6;
+    text-decoration: none;
+    transition: color 0.2s ease-in-out, padding-left 0.2s ease-in-out;
+    display: block;
+    padding: 4px 0;
+}
+
+.footer-detailed .list-unstyled li a:hover {
+    color: #ffffff;
+    padding-left: 5px;
+}
+
+.footer-social-media h6 {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.footer-social-media .social-icon {
+    color: #a6a6a6;
+    font-size: 1.5rem;
+    margin-right: 15px;
+    transition: color 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.footer-social-media .social-icon:hover {
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+.footer-b {
+    background-color: #111111;
+    color: #777;
+    font-size: 0.75rem;
+    padding: 1rem 0;
+}
+
+[data-bs-theme="dark"] .footer-b {
+    background-color: #000;
+}
+
 /* Página de Serviços */
 .service-detail-img {
     max-height: 400px;
@@ -156,6 +237,27 @@ body {
 
     /* Mantém a formatação de espaços e quebras de linha do banco de dados */
     white-space: pre-wrap; 
+}
+
+.imagem-servico-grande {
+    max-width: 700px; /* Define um tamanho máximo de largura em pixels */
+    width: 100%;      /* Garante que a imagem seja responsiva em telas menores */
+    height: auto;     /* Mantém a proporção correta da imagem */
+}
+
+/* Estilo para o logo sobreposto nos formulários */
+.form-container-logo {
+    position: relative; /* Torna este o contêiner de referência para o logo */
+    padding-top: 70px; /* Cria espaço no topo do formulário para o logo não ficar sobre o texto */
+}
+
+.form-logo {
+    width: 160px; /* Tamanho do logo */
+    height: auto;
+    position: absolute; /* Desprende o logo do layout */
+    top: -80px;  /* Puxa o logo para cima, para fora da caixa */
+    left: 50%;
+    transform: translateX(-50%); /* Centraliza o logo horizontalmente */
 }
 
 /* Estilos para o carrossel de serviços na página inicial */

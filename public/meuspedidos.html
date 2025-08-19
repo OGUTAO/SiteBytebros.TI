@@ -28,9 +28,9 @@
             </a>
             <div class="d-flex align-items-center ms-auto">
                  <ul class="navbar-nav">
-                    <li class="nav-item"><a class="nav-link" href="index.html">Menu Principal</a></li>
-                    <li class="nav-item"><a class="nav-link" href="lojapecascliente.html">Ir para Loja</a></li>
-                </ul>
+                     <li class="nav-item"><a class="nav-link" href="index.html">Menu Principal</a></li>
+                     <li class="nav-item"><a class="nav-link" href="lojapecascliente.html">Ir para Loja</a></li>
+                 </ul>
                 <button class="btn btn-sm ms-3" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
             </div>
         </div>
@@ -88,26 +88,41 @@
         const listaInteracoesContainer = document.getElementById("lista-interacoes");
         const spinner = `<div class="text-center p-4"><div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div></div>`;
 
-        // *** FUNÇÃO ATUALIZADA ***
-        function criarCardPedido(pedido) {
+        function criarCardPedido(pedido, reviewedProductIds) {
             const dataFormatada = new Date(pedido.criado_em).toLocaleDateString('pt-BR');
             const valorTotal = parseFloat(pedido.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             
             const statusMap = {
-                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
-                'Aceito': { bg: 'bg-info text-dark', text: 'Aceito' },
-                'Enviado': { bg: 'bg-primary', text: 'Enviado' },
-                'Entregue': { bg: 'bg-success', text: 'Entregue' },
-                'Recusado': { bg: 'bg-danger', text: 'Recusado' },
-                'Devolução': { bg: 'bg-secondary', text: 'Devolução' }
+                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' }, 'Aceito': { bg: 'bg-info text-dark', text: 'Aceito' },
+                'Enviado': { bg: 'bg-primary', text: 'Enviado' }, 'Entregue': { bg: 'bg-success', text: 'Entregue' },
+                'Recusado': { bg: 'bg-danger', text: 'Recusado' }, 'Devolução': { bg: 'bg-secondary', text: 'Devolução' }
             };
             const statusInfo = statusMap[pedido.status] || { bg: 'bg-secondary', text: pedido.status };
 
-            const itensHtml = pedido.itens_pedido.map(item => 
-                `<li>${item.quantidade}x ${item.produtos.name} - ${parseFloat(item.valor_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</li>`
-            ).join('');
+            const itensHtml = pedido.itens_pedido.map(item => {
+                const produto = item.produtos;
+                if (!produto) return `<li>Item indisponível</li>`;
+                
+                let acaoHtml = ''; // Por padrão, não mostra nenhuma ação
+                
+                // ALTERADO: Adiciona a verificação para mostrar o botão/status somente se o pedido foi "Entregue"
+                if (pedido.status === 'Entregue') {
+                    const jaAvaliado = reviewedProductIds.has(produto.id);
+                    if (jaAvaliado) {
+                        acaoHtml = `<span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Avaliado</span>`;
+                    } else {
+                        acaoHtml = `<a href="produto-detalhe.html?id=${produto.id}&avaliar=true" class="btn btn-outline-primary btn-sm">Avaliar</a>`;
+                    }
+                }
 
-            // Bloco de código para adicionar o motivo da recusa, se houver
+                return `
+                    <li class="d-flex justify-content-between align-items-center">
+                        <span>${item.quantidade}x ${produto.name} - ${parseFloat(item.valor_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        ${acaoHtml}
+                    </li>
+                `;
+            }).join('');
+
             let motivoRecusaHtml = '';
             if (pedido.status === 'Recusado' && pedido.motivo_recusa) {
                 motivoRecusaHtml = `
@@ -146,23 +161,21 @@
              const servico = interacao.servico_nome ? `(${interacao.servico_nome})` : '';
 
              const statusMap = {
-                'Novo': { bg: 'bg-light text-dark', text: 'Novo' },
-                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
-                'Em Processo': { bg: 'bg-info text-dark', text: 'Em Processo' },
-                'Concluída': { bg: 'bg-success', text: 'Concluída' },
-                'Cancelada': { bg: 'bg-danger', text: 'Cancelada' }
-            };
-            const statusInfo = statusMap[interacao.status] || { bg: 'bg-light text-dark', text: 'Novo' };
+                 'Novo': { bg: 'bg-light text-dark', text: 'Novo' }, 'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
+                 'Em Processo': { bg: 'bg-info text-dark', text: 'Em Processo' }, 'Concluída': { bg: 'bg-success', text: 'Concluída' },
+                 'Cancelada': { bg: 'bg-danger', text: 'Cancelada' }
+             };
+             const statusInfo = statusMap[interacao.status] || { bg: 'bg-light text-dark', text: 'Novo' };
 
              return `
-                <div class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${tipo} ${servico}</h6>
-                        <small>${dataFormatada}</small>
-                    </div>
-                    <p class="mb-1 text-muted interaction-message" style="font-size: 0.9em;">${interacao.mensagem}</p>
-                    <small><strong>Status:</strong> <span class="badge ${statusInfo.bg} status-badge">${statusInfo.text}</span></small>
-                </div>
+                 <div class="list-group-item">
+                     <div class="d-flex w-100 justify-content-between">
+                         <h6 class="mb-1">${tipo} ${servico}</h6>
+                         <small>${dataFormatada}</small>
+                     </div>
+                     <p class="mb-1 text-muted interaction-message" style="font-size: 0.9em;">${interacao.mensagem}</p>
+                     <small><strong>Status:</strong> <span class="badge ${statusInfo.bg} status-badge">${statusInfo.text}</span></small>
+                 </div>
              `;
         }
         
@@ -179,6 +192,14 @@
             }
 
             try {
+                const { data: userReviews, error: reviewError } = await supabase
+                    .from('avaliacoes')
+                    .select('produto_id')
+                    .eq('user_id', session.user.id);
+
+                if (reviewError) throw reviewError;
+                const reviewedProductIds = new Set(userReviews.map(r => r.produto_id));
+
                 const { data: pedidos, error } = await supabase
                     .from('pedidos')
                     .select(`
@@ -186,7 +207,7 @@
                         itens_pedido (
                             quantidade,
                             valor_unitario,
-                            produtos (name)
+                            produtos (id, name)
                         )
                     `)
                     .eq('user_id', session.user.id)
@@ -195,7 +216,7 @@
                 if (error) throw error;
                 
                 if (pedidos.length > 0) {
-                    listaPedidosContainer.innerHTML = pedidos.map(criarCardPedido).join('');
+                    listaPedidosContainer.innerHTML = pedidos.map(pedido => criarCardPedido(pedido, reviewedProductIds)).join('');
                 } else {
                     listaPedidosContainer.innerHTML = '<p class="text-muted text-center">Nenhum pedido da loja encontrado.</p>';
                 }

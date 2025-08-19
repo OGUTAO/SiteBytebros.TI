@@ -7,6 +7,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
+    <style>
+        .product-card a { text-decoration: none; color: inherit; }
+        .rating-stars-small .bi-star-fill { color: #ffc107; font-size: 0.9rem; }
+        .rating-stars-small .bi-star { color: #e4e5e9; font-size: 0.9rem;}
+    </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -36,34 +41,87 @@
             </div>
     </main>
 
-    <div class="modal fade" id="quantityModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="quantityModalTitle">Adicionar ao Carrinho</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <footer class="footer-detailed mt-auto">
+    <div class="footer-newsletter py-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-5 mb-3 mb-lg-0">
+                    <h4 class="mb-1 fw-bold">Receba Nossas Ofertas</h4>
+                    <p class="mb-0 small">Cadastre-se para não perder nenhuma promoção!</p>
                 </div>
-                <div class="modal-body">
-                    <p id="quantityModalProductInfo"></p>
-                    <div class="mb-3">
-                        <label for="quantityInput" class="form-label">Quantidade (Disponível: <span id="available-stock"></span>)</label>
-                        <input type="number" class="form-control" id="quantityInput" value="1" min="1">
-                    </div>
-                    <div id="quantity-error" class="alert alert-danger d-none"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="add-to-cart-confirm">Adicionar</button>
-                </div>
+                <div class="col-lg-7">
+    <form class="row g-2" id="newsletter-form">
+        <div class="col-md-5">
+            <input type="text" class="form-control" id="newsletter-nome" placeholder="Digite seu nome">
+        </div>
+        <div class="col-md-5">
+            <input type="email" class="form-control" id="newsletter-email" placeholder="Digite seu e-mail">
+        </div>
+        <div class="col-md-2 d-grid">
+            <a href="register.html" class="btn btn-primary">Cadastrar</a>
+        </div>
+    </form>
+</div>
             </div>
         </div>
     </div>
-
-    <footer class="footer mt-auto py-3">
-        <div class="container text-center">
-            <p>&copy; 2025 ByteBrosTI. Todos os direitos reservados. Shop v1.0</p>
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Atendimento</h5>
+                <p class="mb-1"><strong>Segunda a Sexta:</strong> 09:00 às 17:00</p>
+                <p class="small text-white-50">(Horário de Brasília)</p>
+                <a href="atendimento.html" class="btn btn-warning btn-sm mt-2">Fale Conosco</a>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Institucional</h5>
+                <ul class="list-unstyled">
+                    <li><a href="noticias.html">Notícias</a></li>
+                    <li><a href="trabalhe-conosco.html">Trabalhe Conosco</a></li>
+                    <li><a href="sobrenos.html">Sobre a Byte Bros.TI</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Nossas Soluções</h5>
+                <ul class="list-unstyled">
+                    <li><a href="lojapecascliente.html">Loja de Peças</a></li>
+                    <li><a href="servicos.html">Serviços de Manutenção</a></li>
+                    <li><a href="meuspedidos.html">Minhas Atividades</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Políticas e Termos</h5>
+                <ul class="list-unstyled">
+                    <li><a href="#">Políticas de Privacidade</a></li>
+                    <li><a href="#">Política de Devolução</a></li>
+                    <li><a href="#">Termos de Uso</a></li>
+                </ul>
+            </div>
         </div>
-    </footer>
+        <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                    <h5>Contato</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><i class="bi bi-envelope-fill me-2"></i>bytebrosti@gmail.com</li>
+                        <li class="nav-item mt-2"><i class="bi bi-whatsapp me-2"></i>(61) 99914-4748</li>
+                    </ul>
+                </div>
+        <hr style="border-color: rgba(255,255,255,0.1);">
+        <div class="row align-items-center mt-4 footer-social-media">
+            <div class="col-md-6">
+                <h6>Mídias sociais:</h6>
+                <a href="https://www.instagram.com/bytebros.ti/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                <a href="#" class="social-icon" aria-label="Tiktok"><i class="bi bi-tiktok"></i></a>
+                <a href="#" class="social-icon" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="footer-b">
+        <div class="container">
+            <p class="mb-0">&copy; 2025 ByteBrosTI. Todos os direitos reservados. CNPJ: 00.000.000/0001-00</p>
+            <p class="mb-0">Preços e condições de pagamento são exclusivos para compras via internet. Os preços anunciados neste site podem ser alterados sem prévio aviso.</p>
+        </div>
+    </div>
+</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
@@ -71,34 +129,43 @@
         import { supabase } from './js/supabase-client.js';
 
         const productListContainer = document.getElementById('product-list');
-        const quantityModalEl = document.getElementById('quantityModal');
-        const quantityModal = new bootstrap.Modal(quantityModalEl);
-        const confirmAddToCartBtn = document.getElementById('add-to-cart-confirm');
         const themeToggle = document.getElementById('theme-toggle');
-        let currentProductToAdd = null;
         let allProducts = [];
-        let userFavorites = new Set();
+
+        function renderStars(rating = 0) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                stars += `<i class="bi ${i <= rating ? 'bi-star-fill' : 'bi-star'}"></i>`;
+            }
+            return stars;
+        }
 
         function createProductCard(product) {
-            const isFavorited = userFavorites.has(product.id);
-            const favIconClass = isFavorited ? 'bi-heart-fill text-danger' : 'bi-heart';
-
             const cardCol = document.createElement('div');
             cardCol.className = 'col-lg-3 col-md-4 col-sm-6';
             
-            // O ID agora é aplicado diretamente no <div class="card ...">
+            const avgRating = product.avaliacoes.length > 0 ? product.avaliacoes.reduce((sum, r) => sum + r.rating, 0) / product.avaliacoes.length : 0;
+            const reviewCount = product.avaliacoes.length;
+
             cardCol.innerHTML = `
-                <div id="product-card-${product.id}" class="card h-100 shadow-sm product-card position-relative">
-                    <i class="bi ${favIconClass} favorite-icon position-absolute top-0 end-0 m-2 fs-4" style="cursor: pointer;" data-product-id="${product.id}"></i>
-                    <img src="${product.image || 'img/default_product.jpg'}" class="card-img-top p-3" alt="${product.name}" style="height: 200px; object-fit: contain;">
+                <div id="product-card-${product.id}" class="card h-100 shadow-sm product-card">
+                    <a href="produto-detalhe.html?id=${product.id}">
+                        <img src="${product.image || 'img/default_product.jpg'}" class="card-img-top p-3" alt="${product.name}" style="height: 200px; object-fit: contain;">
+                    </a>
                     <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">${product.name}</h5>
+                        <h5 class="card-title">
+                            <a href="produto-detalhe.html?id=${product.id}">${product.name}</a>
+                        </h5>
+                        <div class="d-flex align-items-center mb-2 rating-stars-small">
+                            ${renderStars(avgRating)}
+                            <span class="ms-2 text-muted" style="font-size: 0.8rem;">(${reviewCount})</span>
+                        </div>
                         <p class="card-text text-muted small flex-grow-1">Disponível: ${product.quantity}</p>
                         <div class="mt-auto text-center">
                             <p class="card-text fs-5 fw-bold">${parseFloat(product.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                            <button class="btn btn-primary w-100 add-to-cart-btn" data-product-id="${product.id}" ${product.quantity <= 0 ? 'disabled' : ''}>
-                                ${product.quantity <= 0 ? 'Fora de Estoque' : 'Adicionar ao Carrinho'}
-                            </button>
+                            <a href="produto-detalhe.html?id=${product.id}" class="btn btn-primary w-100">
+                                Ver Detalhes
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -109,15 +176,13 @@
         async function loadProducts() {
             productListContainer.innerHTML = '<div class="text-center w-100"><div class="spinner-border" role="status"></div></div>';
             
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const { data: favorites, error: favError } = await supabase.from('favoritos').select('produto_id').eq('user_id', session.user.id);
-                if (favError) console.error("Erro ao buscar favoritos:", favError);
-                else userFavorites = new Set(favorites.map(f => f.produto_id));
-            }
-
             try {
-                const { data, error } = await supabase.from('produtos').select('*').order('name', { ascending: true });
+                // Busca produtos e suas avaliações relacionadas em uma única consulta
+                const { data, error } = await supabase
+                    .from('produtos')
+                    .select('*, avaliacoes(rating)')
+                    .order('name', { ascending: true });
+
                 if (error) throw error;
                 allProducts = data;
 
@@ -131,132 +196,13 @@
                     const card = createProductCard(product);
                     productListContainer.appendChild(card);
                 });
-                attachCardEvents();
-                
-                // *** CHAMA A FUNÇÃO DE DESTAQUE AQUI ***
-                handleHighlight();
 
             } catch (error) {
                 productListContainer.innerHTML = `<div class="alert alert-danger">Erro ao carregar produtos: ${error.message}</div>`;
             }
         }
-
-        // *** NOVA FUNÇÃO PARA ROLAR E DESTACAR ***
-        function handleHighlight() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const productIdToHighlight = urlParams.get('highlight');
-
-            if (productIdToHighlight) {
-                const productCard = document.getElementById(`product-card-${productIdToHighlight}`);
-                if (productCard) {
-                    // Rola a tela até o elemento
-                    productCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
-                    // Adiciona a classe da animação diretamente ao card
-                    productCard.classList.add('product-highlight');
-                    
-                    // Remove a classe após a animação terminar (duração de 2s)
-                    setTimeout(() => {
-                        productCard.classList.remove('product-highlight');
-                    }, 2000);
-                }
-            }
-        }
-
-        function attachCardEvents() {
-            document.querySelectorAll('.add-to-cart-btn').forEach(button => {
-                button.addEventListener('click', async (e) => {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) {
-                        alert('Você precisa estar logado para adicionar itens ao carrinho.');
-                        window.location.href = 'login.html';
-                        return;
-                    }
-                    const productId = e.target.dataset.productId;
-                    currentProductToAdd = allProducts.find(p => String(p.id) === productId);
-                    if (currentProductToAdd) openQuantityModal(currentProductToAdd);
-                });
-            });
-
-            document.querySelectorAll('.favorite-icon').forEach(icon => {
-                icon.addEventListener('click', async (e) => {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) {
-                        alert('Você precisa estar logado para favoritar um item.');
-                        return; 
-                    }
-                    toggleFavorite(e.target, session.user.id);
-                });
-            });
-        }
         
-        async function toggleFavorite(iconEl, userId) {
-            const productId = parseInt(iconEl.dataset.productId);
-            const isFavorited = userFavorites.has(productId);
-
-            if (isFavorited) {
-                const { error } = await supabase.from('favoritos').delete().match({ user_id: userId, produto_id: productId });
-                if (!error) {
-                    userFavorites.delete(productId);
-                    iconEl.classList.replace('bi-heart-fill', 'bi-heart');
-                    iconEl.classList.remove('text-danger');
-                }
-            } else {
-                const { error } = await supabase.from('favoritos').insert({ user_id: userId, produto_id: productId });
-                if (!error) {
-                    userFavorites.add(productId);
-                    iconEl.classList.replace('bi-heart', 'bi-heart-fill');
-                    iconEl.classList.add('text-danger');
-                }
-            }
-        }
-
-        function openQuantityModal(product) {
-            document.getElementById('quantityModalProductInfo').textContent = product.name;
-            document.getElementById('available-stock').textContent = product.quantity;
-            const quantityInput = document.getElementById('quantityInput');
-            quantityInput.max = product.quantity;
-            quantityInput.value = 1;
-            document.getElementById('quantity-error').classList.add('d-none');
-            quantityModal.show();
-        }
-
-        function addToCart() {
-            const quantityInput = document.getElementById('quantityInput');
-            const quantity = parseInt(quantityInput.value);
-            const errorDiv = document.getElementById('quantity-error');
-
-            if (isNaN(quantity) || quantity <= 0 || quantity > currentProductToAdd.quantity) {
-                errorDiv.textContent = `Por favor, insira uma quantidade válida (entre 1 e ${currentProductToAdd.quantity}).`;
-                errorDiv.classList.remove('d-none');
-                return;
-            }
-
-            let cart = JSON.parse(localStorage.getItem('cart')) || [];
-            const existingItem = cart.find(item => String(item.id) === String(currentProductToAdd.id));
-
-            if (existingItem) {
-                if (existingItem.quantity + quantity > currentProductToAdd.quantity) {
-                    errorDiv.textContent = `Você já tem ${existingItem.quantity} no carrinho. Não pode adicionar mais ${quantity}, pois excede o estoque.`;
-                    errorDiv.classList.remove('d-none');
-                    return;
-                }
-                existingItem.quantity += quantity;
-            } else {
-                cart.push({
-                    id: currentProductToAdd.id,
-                    name: currentProductToAdd.name,
-                    value: currentProductToAdd.value,
-                    image: currentProductToAdd.image,
-                    quantity: quantity
-                });
-            }
-
-            localStorage.setItem('cart', JSON.stringify(cart));
-            updateCartBadge();
-            quantityModal.hide();
-        }
-
+        // Lógica do tema e badge do carrinho (mantida como estava)
         function updateCartBadge() {
             const cart = JSON.parse(localStorage.getItem('cart')) || [];
             const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -278,7 +224,6 @@
             document.documentElement.setAttribute('data-bs-theme', savedTheme);
         }
 
-        confirmAddToCartBtn.addEventListener('click', addToCart);
         loadProducts();
         updateCartBadge();
     </script>

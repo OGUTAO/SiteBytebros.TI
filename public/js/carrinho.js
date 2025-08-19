@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cart.forEach(item => {
                 const itemEl = document.createElement('div');
                 itemEl.className = 'list-group-item d-flex align-items-center flex-wrap';
+                // <-- MUDANÇA: Adicionado exibição de estoque e desativação do botão '+'
                 itemEl.innerHTML = `
                     <div class="flex-shrink-0">
                         <img src="${item.image || 'img/default_product.jpg'}" alt="${item.name}" class="cart-item-img">
@@ -35,11 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="flex-grow-1 ms-3">
                         <h6 class="my-0">${item.name}</h6>
                         <small class="text-muted">${formatCurrency(item.value)}</small>
+                        <br>
+                        <small class="text-muted">Estoque: ${item.stock}</small>
                     </div>
                     <div class="d-flex align-items-center my-2 my-md-0 quantity-controls">
                         <button class="btn btn-sm btn-outline-secondary" data-id="${item.id}" data-change="-1">-</button>
-                        <input type="number" class="form-control form-control-sm mx-2" value="${item.quantity}" min="1" data-id="${item.id}" readonly>
-                        <button class="btn btn-sm btn-outline-secondary" data-id="${item.id}" data-change="1">+</button>
+                        <input type="number" class="form-control form-control-sm mx-2" value="${item.quantity}" min="1" max="${item.stock}" data-id="${item.id}" readonly>
+                        <button class="btn btn-sm btn-outline-secondary" data-id="${item.id}" data-change="1" ${item.quantity >= item.stock ? 'disabled' : ''}>+</button>
                     </div>
                     <div class="ms-auto ms-md-3 fw-bold">
                         ${formatCurrency(item.value * item.quantity)}
@@ -65,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         subtotalValueEl.textContent = formatCurrency(subtotal);
         
-        // Lógica de frete: frete fixo se houver itens, senão é zero.
         const shipping = subtotal > 0 ? 25.50 : 0;
         document.getElementById('shipping-value').textContent = formatCurrency(shipping);
 
@@ -73,15 +75,27 @@ document.addEventListener('DOMContentLoaded', () => {
         totalValueEl.textContent = formatCurrency(total);
     }
     
+    // <-- MUDANÇA: Lógica de validação de estoque adicionada aqui
     // Atualiza a quantidade de um item no carrinho
     function updateCart(productId, change) {
         let cart = JSON.parse(localStorage.getItem('cart')) || [];
         const itemIndex = cart.findIndex(item => String(item.id) === String(productId));
 
         if (itemIndex > -1) {
-            cart[itemIndex].quantity += change;
-            if (cart[itemIndex].quantity <= 0) {
-                cart.splice(itemIndex, 1); // Remove o item se a quantidade for 0 ou menor
+            const item = cart[itemIndex];
+            const newQuantity = item.quantity + change;
+
+            // Se estiver tentando adicionar mais que o estoque, mostre um alerta e pare a função
+            if (change > 0 && newQuantity > item.stock) {
+                alert(`Limite de estoque atingido para "${item.name}". Apenas ${item.stock} unidades disponíveis.`);
+                return; // Impede a alteração
+            }
+            
+            item.quantity = newQuantity;
+
+            // Remove o item se a quantidade for 0 ou menor
+            if (item.quantity <= 0) {
+                cart.splice(itemIndex, 1);
             }
         }
         localStorage.setItem('cart', JSON.stringify(cart));
@@ -96,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCart();
     }
 
-    // Adiciona os eventos de clique para os botões de controle
+    // Adiciona os eventos de clique para os botões de controle (sem alteração aqui)
     function attachEventListeners() {
         cartItemsContainer.querySelectorAll('button[data-change]').forEach(button => {
             button.addEventListener('click', () => {
@@ -107,13 +121,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         cartItemsContainer.querySelectorAll('button[data-action="remove"]').forEach(button => {
             button.addEventListener('click', () => {
-                const productId = button.dataset.id;
-                removeFromCart(productId);
+                if (confirm('Deseja remover este item do carrinho?')) {
+                    const productId = button.dataset.id;
+                    removeFromCart(productId);
+                }
             });
         });
     }
     
-    // Busca o CEP usando a API ViaCEP
+    // Busca o CEP usando a API ViaCEP (sem alteração aqui)
     async function fetchCep(cep) {
         const cepBtnIcon = cepBtn.querySelector('.bi');
         const cepBtnSpinner = cepBtn.querySelector('.cep-loading');
@@ -127,12 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.erro) throw new Error('CEP inválido.');
             
-            // Preenche os campos do formulário com os dados retornados
             document.getElementById('endereco').value = data.logradouro;
             document.getElementById('bairro').value = data.bairro;
             document.getElementById('cidade').value = data.localidade;
             document.getElementById('uf').value = data.uf;
-            document.getElementById('numero').focus(); // Move o cursor para o campo "Número"
+            document.getElementById('numero').focus();
 
         } catch (error) {
             alert(error.message);
@@ -142,9 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Evento de clique no botão de buscar CEP
+    // Evento de clique no botão de buscar CEP (sem alteração aqui)
     cepBtn.addEventListener('click', () => {
-        const cep = cepInput.value.replace(/\D/g, ''); // Remove caracteres não numéricos
+        const cep = cepInput.value.replace(/\D/g, '');
         if (cep.length === 8) {
             fetchCep(cep);
         } else {
@@ -154,15 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Evento de clique no botão de ir para o pagamento
     checkoutBtn.addEventListener('click', () => {
-        // Verifica se o formulário de endereço é válido
         if (!deliveryForm.checkValidity()) {
             deliveryForm.classList.add('was-validated');
             alert('Por favor, preencha todos os campos obrigatórios do endereço.');
             return;
         }
 
-        // *** ALTERAÇÃO PRINCIPAL AQUI ***
-        // Cria um objeto com os dados de endereço em vez de um texto único
+        // <-- MUDANÇA: Verificação final de estoque antes de prosseguir
+        const cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const itemOverStock = cart.find(item => item.quantity > item.stock);
+
+        if (itemOverStock) {
+            alert(`O produto "${itemOverStock.name}" tem mais itens no carrinho do que o disponível em estoque. Por favor, ajuste a quantidade.`);
+            return; // Impede o checkout
+        }
+
         const deliveryAddress = {
             cep: document.getElementById('cep').value,
             endereco: document.getElementById('endereco').value,
@@ -173,10 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
             uf: document.getElementById('uf').value,
         };
         
-        // Salva o objeto como um texto JSON no localStorage
         localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
         
-        // Redireciona para a página de pagamento
         window.location.href = 'pagamento.html';
     });
 

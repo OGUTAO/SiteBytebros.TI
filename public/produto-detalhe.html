@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes do Produto - Byte Bros.TI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .carousel-item img { height: 450px; object-fit: contain; width: 100%; }
+        .carousel-inner { background-color: rgba(0,0,0,0.05); border-radius: 0.375rem; border: 1px solid var(--bs-border-color); }
+        .product-gallery-thumbnails img { height: 80px; width: 80px; object-fit: contain; cursor: pointer; opacity: 0.6; transition: all 0.2s; border: 2px solid transparent; }
+        .product-gallery-thumbnails img.active, .product-gallery-thumbnails img:hover { opacity: 1; border-color: var(--bs-primary); }
+        .rating-stars .bi-star-fill { color: #ffc107; }
+        .rating-stars .bi-star { color: #e4e5e9; }
+        .review-form-stars .bi-star { cursor: pointer; font-size: 1.5rem; }
+        #fav-button .bi-heart-fill { color: var(--bs-danger); }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100 bg-body-tertiary">
+
+    <nav class="navbar navbar-expand-lg bg-body shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <span class="logo-text">BYTE BROS.TI</span>
+                <div class="logo-subtext">ByteCore Shop</div>
+            </a>
+            <div class="d-flex align-items-center ms-auto">
+                <a href="lojapecascliente.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Voltar para a Loja</a>
+                <a href="carrinho.html" class="btn btn-light position-relative ms-3 me-3" aria-label="Carrinho">
+                    <i class="bi bi-cart-fill"></i>
+                    <span id="cart-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">0</span>
+                </a>
+                <button class="btn btn-sm ms-2" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <div id="product-details-container" class="card shadow-sm p-4">
+            <div class="text-center p-5">
+                <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status"></div>
+                <p class="mt-2">Carregando detalhes do produto...</p>
+            </div>
+        </div>
+        <div id="product-reviews-section" class="card shadow-sm p-4 mt-4"></div>
+    </main>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
+
+        const productDetailsContainer = document.getElementById('product-details-container');
+        const productReviewsSection = document.getElementById('product-reviews-section');
+        let currentProduct = null;
+        let currentUser = null;
+
+        function renderStars(rating = 0) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                stars += i <= rating ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-star"></i>';
+            }
+            return stars;
+        }
+
+        function renderProductCarousel(product) {
+            const carouselInner = document.querySelector('#productCarousel .carousel-inner');
+            const thumbnailsContainer = document.getElementById('product-thumbnails');
+            carouselInner.innerHTML = '';
+            thumbnailsContainer.innerHTML = '';
+            const allImages = [product.image, ...(product.imagens || [])].filter(url => url);
+            if (allImages.length === 0) { allImages.push('img/default_product.jpg'); }
+            allImages.forEach((url, index) => {
+                const carouselItem = document.createElement('div');
+                carouselItem.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+                carouselItem.innerHTML = `<img src="${url}" class="d-block w-100" alt="Imagem ${index + 1} do produto">`;
+                carouselInner.appendChild(carouselItem);
+                const thumbnail = document.createElement('img');
+                thumbnail.src = url;
+                thumbnail.className = `rounded border p-1 me-2 ${index === 0 ? 'active' : ''}`;
+                thumbnail.setAttribute('data-bs-target', '#productCarousel');
+                thumbnail.setAttribute('data-bs-slide-to', index);
+                thumbnail.addEventListener('click', () => {
+                    document.querySelectorAll('#product-thumbnails img').forEach(t => t.classList.remove('active'));
+                    thumbnail.classList.add('active');
+                });
+                thumbnailsContainer.appendChild(thumbnail);
+            });
+            const carouselEl = document.getElementById('productCarousel');
+            if (carouselEl) {
+                carouselEl.addEventListener('slid.bs.carousel', event => {
+                    document.querySelectorAll('#product-thumbnails img').forEach(t => t.classList.remove('active'));
+                    const activeThumbnail = document.querySelector(`#product-thumbnails img[data-bs-slide-to="${event.to}"]`);
+                    if(activeThumbnail) activeThumbnail.classList.add('active');
+                });
+            }
+        }
+
+        async function checkUserPurchaseAndReviewStatus() {
+            if (!currentUser) return { canReview: false, reason: 'login' };
+            const { data: existingReview } = await supabase.from('avaliacoes').select('id').eq('produto_id', currentProduct.id).eq('user_id', currentUser.id).maybeSingle();
+            if (existingReview) return { canReview: false, reason: 'already_reviewed' };
+            const { data: purchase } = await supabase.from('pedidos').select('id, itens_pedido!inner(produto_id)').eq('user_id', currentUser.id).eq('itens_pedido.produto_id', currentProduct.id).limit(1);
+            return (purchase && purchase.length > 0) ? { canReview: true, reason: null } : { canReview: false, reason: 'not_purchased' };
+        }
+
+        async function loadReviews() {
+            const { data: reviews, error } = await supabase.from('avaliacoes').select('*').eq('produto_id', currentProduct.id).order('criado_em', { ascending: false });
+            if (error) { productReviewsSection.innerHTML = '<p class="text-danger">Erro ao carregar avaliações.</p>'; return; }
+            const totalReviews = reviews.length;
+            const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
+            const ratingSummaryEl = document.getElementById('product-rating-summary');
+            if(ratingSummaryEl) {
+                ratingSummaryEl.innerHTML = `<span class="me-2">${renderStars(avgRating)}</span><span class="text-muted">(${totalReviews} avaliações)</span>`;
+            }
+            let reviewsHtml = `<h3 class="mb-4">Avaliações de Clientes (${totalReviews})</h3>`;
+            const reviewStatus = await checkUserPurchaseAndReviewStatus();
+            if (reviewStatus.canReview) {
+                reviewsHtml += `
+                    <div class="card bg-body-tertiary p-3 mb-4">
+                        <h5>Deixe sua avaliação</h5>
+                        <form id="review-form">
+                            <div class="mb-2 review-form-stars" id="form-stars">${renderStars(0)}</div>
+                            <input type="hidden" id="review-rating" value="0">
+                            <div class="mb-3"><textarea id="review-comment" class="form-control" rows="3" placeholder="Escreva seu comentário (opcional)..."></textarea></div>
+                            <button type="submit" class="btn btn-primary btn-sm">Enviar Avaliação</button>
+                        </form>
+                    </div>`;
+            } else {
+                let message = '';
+                switch (reviewStatus.reason) {
+                    case 'login': message = 'Você precisa estar <a href="login.html">logado</a> para deixar uma avaliação.'; break;
+                    case 'not_purchased': message = 'Apenas clientes que compraram este produto podem avaliá-lo.'; break;
+                    case 'already_reviewed': message = 'Você já avaliou este produto. Obrigado pelo seu feedback!'; break;
+                }
+                reviewsHtml += `<p class="text-muted">${message}</p>`;
+            }
+            if (totalReviews > 0) {
+                reviews.forEach(review => {
+                    reviewsHtml += `
+                        <div class="d-flex mb-3 border-bottom pb-3">
+                            <div class="flex-shrink-0"><i class="bi bi-person-circle fs-2 text-muted"></i></div>
+                            <div class="ms-3">
+                                <strong>${review.user_nome}</strong>
+                                <div class="rating-stars">${renderStars(review.rating)}</div>
+                                <p class="mb-1">${review.comentario || ''}</p>
+                                <small class="text-muted">${new Date(review.criado_em).toLocaleDateString('pt-BR')}</small>
+                            </div>
+                        </div>`;
+                });
+            } else {
+                reviewsHtml += '<p class="text-muted">Este produto ainda não possui avaliações.</p>';
+            }
+            productReviewsSection.innerHTML = reviewsHtml;
+            attachReviewFormListeners();
+        }
+
+        function attachReviewFormListeners() {
+            const form = document.getElementById('review-form');
+            if (!form) return;
+            const stars = form.querySelectorAll('.review-form-stars .bi-star');
+            const ratingInput = document.getElementById('review-rating');
+            stars.forEach((star, index) => {
+                star.addEventListener('mouseover', () => {
+                    for(let i = 0; i <= index; i++) stars[i].classList.add('bi-star-fill');
+                    for(let i = index + 1; i < stars.length; i++) stars[i].classList.remove('bi-star-fill');
+                });
+                star.addEventListener('click', () => {
+                    ratingInput.value = index + 1;
+                    for(let i = 0; i < stars.length; i++) stars[i].className = i <= index ? 'bi bi-star-fill' : 'bi bi-star';
+                });
+            });
+            form.addEventListener('mouseleave', () => {
+                const currentRating = parseInt(ratingInput.value);
+                stars.forEach((s, i) => s.className = i < currentRating ? 'bi bi-star-fill' : 'bi bi-star');
+            });
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const rating = parseInt(ratingInput.value);
+                if (rating === 0) { alert('Por favor, selecione uma nota de 1 a 5 estrelas.'); return; }
+                const { data: userProfile } = await supabase.from('usuarios').select('nome_completo').eq('id', currentUser.id).single();
+                const reviewData = {
+                    produto_id: currentProduct.id, user_id: currentUser.id,
+                    user_nome: userProfile.nome_completo, rating: rating,
+                    comentario: document.getElementById('review-comment').value
+                };
+                const { error } = await supabase.from('avaliacoes').insert(reviewData);
+                if (error) { alert(`Erro ao enviar avaliação: ${error.message}`); } else {
+                    alert('Avaliação enviada com sucesso!');
+                    loadReviews();
+                }
+            });
+        }
+        
+        function updateCartBadge() {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const badge = document.getElementById('cart-badge');
+            if (badge) {
+                badge.textContent = totalItems;
+                badge.style.display = totalItems > 0 ? 'block' : 'none';
+            }
+        }
+
+        function addToCart(product) {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            // Pega a quantidade do novo campo de input
+            const quantityToAdd = parseInt(document.getElementById('quantity-input').value);
+
+            if (isNaN(quantityToAdd) || quantityToAdd < 1) {
+                alert("Por favor, insira uma quantidade válida.");
+                return;
+            }
+
+            const existingProductIndex = cart.findIndex(item => item.id === product.id);
+            
+            // Pega a quantidade que já está no carrinho, ou 0 se não estiver
+            const quantityInCart = existingProductIndex > -1 ? cart[existingProductIndex].quantity : 0;
+
+            // A validação principal: a soma do que já tem e do que vai adicionar não pode passar o estoque
+            if ((quantityInCart + quantityToAdd) > product.quantity) {
+                alert(`Não foi possível adicionar. Você tentou adicionar ${quantityToAdd}, mas só há ${product.quantity - quantityInCart} unidades disponíveis em estoque (você já tem ${quantityInCart} no carrinho).`);
+                return;
+            }
+
+            if (existingProductIndex > -1) {
+                // Se o produto já existe, apenas soma a nova quantidade
+                cart[existingProductIndex].quantity += quantityToAdd;
+            } else {
+                // Se é um produto novo, adiciona com a quantidade escolhida
+                cart.push({ 
+                    id: product.id, 
+                    name: product.name, 
+                    value: product.value, 
+                    image: product.image, 
+                    quantity: quantityToAdd, // Usa a quantidade do input
+                    stock: product.quantity
+                });
+            }
+
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartBadge();
+            alert(`${quantityToAdd} unidade(s) de "${product.name}" foram adicionadas ao carrinho!`);
+        }
+
+        async function toggleFavorite(productId, userId, buttonElement) {
+            const heartIcon = buttonElement.querySelector('i');
+            const isFavorited = heartIcon.classList.contains('bi-heart-fill');
+            if (isFavorited) {
+                const { error } = await supabase.from('favoritos').delete().eq('user_id', userId).eq('produto_id', productId);
+                if (error) { alert('Erro ao remover favorito.'); } 
+                else { heartIcon.classList.replace('bi-heart-fill', 'bi-heart'); }
+            } else {
+                const { error } = await supabase.from('favoritos').insert({ user_id: userId, produto_id: productId });
+                if (error) { alert('Erro ao adicionar favorito.'); } 
+                else { heartIcon.classList.replace('bi-heart', 'bi-heart-fill'); }
+            }
+        }
+
+        function attachActionListeners() {
+            const addToCartBtn = document.getElementById('add-to-cart-btn');
+            const favBtn = document.getElementById('fav-button');
+            const shareBtn = document.getElementById('share-button');
+
+            // --- NOVO: Listeners para o seletor de quantidade ---
+            const quantityInput = document.getElementById('quantity-input');
+            const increaseBtn = document.getElementById('quantity-increase');
+            const decreaseBtn = document.getElementById('quantity-decrease');
+
+            if (quantityInput) {
+                increaseBtn.addEventListener('click', () => {
+                    let currentValue = parseInt(quantityInput.value);
+                    const maxValue = parseInt(quantityInput.max);
+                    if (currentValue < maxValue) {
+                        quantityInput.value = currentValue + 1;
+                    }
+                });
+
+                decreaseBtn.addEventListener('click', () => {
+                    let currentValue = parseInt(quantityInput.value);
+                    if (currentValue > 1) {
+                        quantityInput.value = currentValue - 1;
+                    }
+                });
+
+                quantityInput.addEventListener('change', () => {
+                    let currentValue = parseInt(quantityInput.value);
+                    const maxValue = parseInt(quantityInput.max);
+                    if (currentValue > maxValue) quantityInput.value = maxValue;
+                    if (currentValue < 1) quantityInput.value = 1;
+                });
+            }
+            // --- FIM DA NOVA PARTE ---
+
+            if(addToCartBtn) {
+                addToCartBtn.addEventListener('click', () => {
+                    if (currentUser) {
+                        addToCart(currentProduct);
+                    } else {
+                        alert('Você precisa estar logado para adicionar produtos ao carrinho. Redirecionando...');
+                        window.location.href = 'login.html';
+                    }
+                });
+            }
+
+            if(favBtn) {
+                favBtn.addEventListener('click', () => {
+                    if (currentUser) {
+                        toggleFavorite(currentProduct.id, currentUser.id, favBtn);
+                    } else {
+                        alert('Você precisa estar logado para favoritar produtos. Redirecionando...');
+                        window.location.href = 'login.html';
+                    }
+                });
+            }
+
+            if(shareBtn) {
+                shareBtn.addEventListener('click', () => {
+                    if(navigator.share) {
+                        navigator.share({ title: currentProduct.name, text: `Confira este produto: ${currentProduct.name}`, url: window.location.href });
+                    } else {
+                        navigator.clipboard.writeText(window.location.href);
+                        alert('Link do produto copiado para a área de transferência!');
+                    }
+                });
+            }
+        }
+
+        async function loadProductDetails() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const productId = urlParams.get('id');
+
+            if (!productId) {
+                productDetailsContainer.innerHTML = '<div class="alert alert-danger">Produto não encontrado.</div>';
+                return;
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            currentUser = session?.user || null;
+
+            const { data: product, error } = await supabase.from('produtos').select('*, image, imagens').eq('id', productId).single();
+            if (error || !product) {
+                productDetailsContainer.innerHTML = `<div class="alert alert-danger">Erro ao carregar o produto: ${error?.message || 'Não encontrado.'}</div>`;
+                return;
+            }
+            currentProduct = product;
+
+            document.title = `${product.name} - Byte Bros.TI`;
+
+            // --- INÍCIO DA CORREÇÃO ---
+            let isFavorited = false;
+            if (currentUser) {
+                // Usando 'count' para uma verificação mais direta e robusta
+                const { count, error: countError } = await supabase
+                    .from('favoritos')
+                    .select('*', { count: 'exact', head: true }) // Apenas conta os registros, não baixa os dados
+                    .eq('user_id', currentUser.id)
+                    .eq('produto_id', currentProduct.id);
+
+                if (countError) {
+                    console.error("Erro ao verificar favoritos:", countError);
+                } else if (count > 0) {
+                    isFavorited = true;
+                }
+            }
+            // --- FIM DA CORREÇÃO ---
+
+            const heartIconClass = isFavorited ? 'bi-heart-fill' : 'bi-heart';
+
+            productDetailsContainer.innerHTML = `
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
+                            <div class="carousel-inner"></div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-3 product-gallery-thumbnails" id="product-thumbnails"></div>
+                    </div>
+                    <div class="col-lg-6">
+                        <h2>${product.name}</h2>
+                        <div class="d-flex align-items-center mb-3 rating-stars" id="product-rating-summary"></div>
+                        <p class="fs-3 fw-bold text-primary">${parseFloat(product.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        <div class="d-flex align-items-center text-success mb-3"><i class="bi bi-check-circle-fill me-2"></i><span>Selo de Garantia ByteBros</span></div>
+                        <div class="d-flex align-items-center text-muted mb-4"><i class="bi bi-arrow-repeat me-2"></i><span>Devolução por problemas de fábrica</span></div>
+                        <p class="text-muted">Estoque: ${product.quantity > 0 ? `${product.quantity} unidades disponíveis` : 'Fora de estoque'}</p>
+                        
+                        <div class="mb-3" style="max-width: 150px;">
+                            <label for="quantity-input" class="form-label">Quantidade:</label>
+                            <div class="input-group">
+                                <button class="btn btn-outline-secondary" type="button" id="quantity-decrease">-</button>
+                                <input type="number" id="quantity-input" class="form-control text-center" value="1" min="1" max="${product.quantity}" ${product.quantity <= 0 ? 'disabled' : ''}>
+                                <button class="btn btn-outline-secondary" type="button" id="quantity-increase">+</button>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex">
+                            <button class="btn btn-primary btn-lg flex-grow-1" id="add-to-cart-btn" ${product.quantity <= 0 ? 'disabled' : ''}>
+                                <i class="bi bi-cart-plus-fill me-2"></i> ${product.quantity <= 0 ? 'Indisponível' : 'Adicionar ao Carrinho'}
+                            </button>
+                            <button class="btn btn-outline-danger btn-lg" id="fav-button" title="Adicionar aos Favoritos">
+                                <i class="bi ${heartIconClass}"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary btn-lg" id="share-button" title="Compartilhar"><i class="bi bi-share-fill"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-5">
+                    <ul class="nav nav-tabs" id="myTab" role="tablist">
+                        <li class="nav-item" role="presentation"><button class="nav-link active" id="description-tab" data-bs-toggle="tab" data-bs-target="#description-pane">Descrição</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link" id="specs-tab" data-bs-toggle="tab" data-bs-target="#specs-pane">Especificações</button></li>
+                    </ul>
+                    <div class="tab-content pt-4" id="myTabContent">
+                        <div class="tab-pane fade show active" id="description-pane"><p style="white-space: pre-wrap;">${product.details || 'Nenhuma descrição detalhada fornecida.'}</p></div>
+                        <div class="tab-pane fade" id="specs-pane"><p style="white-space: pre-wrap;">${product.especificacoes || 'Nenhuma especificação técnica fornecida.'}</p></div>
+                    </div>
+                </div>`;
+            
+            renderProductCarousel(product);
+            loadReviews();
+            attachActionListeners();
+
+            if (urlParams.get('avaliar') === 'true') {
+                document.getElementById('product-reviews-section').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        const themeToggle = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const newTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+        }
+
+        loadProductDetails();
+        updateCartBadge();
+    </script>
+     <footer class="footer-detailed mt-auto">
+    <div class="footer-newsletter py-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-5 mb-3 mb-lg-0">
+                    <h4 class="mb-1 fw-bold">Receba Nossas Ofertas</h4>
+                    <p class="mb-0 small">Cadastre-se para não perder nenhuma promoção!</p>
+                </div>
+                <div class="col-lg-7">
+    <form class="row g-2" id="newsletter-form">
+        <div class="col-md-5">
+            <input type="text" class="form-control" id="newsletter-nome" placeholder="Digite seu nome">
+        </div>
+        <div class="col-md-5">
+            <input type="email" class="form-control" id="newsletter-email" placeholder="Digite seu e-mail">
+        </div>
+        <div class="col-md-2 d-grid">
+            <a href="register.html" class="btn btn-primary">Cadastrar</a>
+        </div>
+    </form>
+</div>
+            </div>
+        </div>
+    </div>
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Atendimento</h5>
+                <p class="mb-1"><strong>Segunda a Sexta:</strong> 09:00 às 17:00</p>
+                <p class="small text-white-50">(Horário de Brasília)</p>
+                <a href="atendimento.html" class="btn btn-warning btn-sm mt-2">Fale Conosco</a>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Institucional</h5>
+                <ul class="list-unstyled">
+                    <li><a href="noticias.html">Notícias</a></li>
+                    <li><a href="trabalhe-conosco.html">Trabalhe Conosco</a></li>
+                    <li><a href="sobrenos.html">Sobre a Byte Bros.TI</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Nossas Soluções</h5>
+                <ul class="list-unstyled">
+                    <li><a href="lojapecascliente.html">Loja de Peças</a></li>
+                    <li><a href="servicos.html">Serviços de Manutenção</a></li>
+                    <li><a href="meuspedidos.html">Minhas Atividades</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5>Políticas e Termos</h5>
+                <ul class="list-unstyled">
+                    <li><a href="#">Políticas de Privacidade</a></li>
+                    <li><a href="#">Política de Devolução</a></li>
+                    <li><a href="#">Termos de Uso</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                    <h5>Contato</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><i class="bi bi-envelope-fill me-2"></i>bytebrosti@gmail.com</li>
+                        <li class="nav-item mt-2"><i class="bi bi-whatsapp me-2"></i>(61) 99914-4748</li>
+                    </ul>
+                </div>
+        <hr style="border-color: rgba(255,255,255,0.1);">
+        <div class="row align-items-center mt-4 footer-social-media">
+            <div class="col-md-6">
+                <h6>Mídias sociais:</h6>
+                <a href="https://www.instagram.com/bytebros.ti/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                <a href="#" class="social-icon" aria-label="Tiktok"><i class="bi bi-tiktok"></i></a>
+                <a href="#" class="social-icon" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="footer-b">
+        <div class="container">
+            <p class="mb-0">&copy; 2025 ByteBrosTI. Todos os direitos reservados. CNPJ: 00.000.000/0001-00</p>
+            <p class="mb-0">Preços e condições de pagamento são exclusivos para compras via internet. Os preços anunciados neste site podem ser alterados sem prévio aviso.</p>
+        </div>
+    </div>
+</footer>
+</body>
+</html>

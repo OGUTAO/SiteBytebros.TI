@@ -9,7 +9,7 @@
 </head>
 <body class="bg-dark">
 
-    <div class="container mt-5">
+    <div class="container mt-5 mb-5">
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="card bg-dark text-light border-secondary">
@@ -26,8 +26,13 @@
                             </div>
 
                             <div class="mb-3">
-                                <label for="product-details" class="form-label">Detalhes/Descrição</label>
+                                <label for="product-details" class="form-label">Descrição Curta</label>
                                 <textarea class="form-control" id="product-details" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="product-specs" class="form-label">Especificações Técnicas</label>
+                                <textarea class="form-control" id="product-specs" rows="6" placeholder="Ex:&#10;Marca: Exemplo&#10;Modelo: XPTO-123&#10;Memória RAM: 16GB DDR4"></textarea>
                             </div>
 
                             <div class="row">
@@ -42,16 +47,27 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="product-image" class="form-label">Imagem do Produto</label>
+                                <label for="product-image" class="form-label">Imagem Principal do Produto</label>
                                 <input class="form-control" type="file" id="product-image" accept="image/png, image/jpeg, image/webp">
-                                <small class="form-text text-muted">A imagem atual será mantida se nenhuma nova for selecionada.</small>
+                                <small class="form-text text-muted">Esta será a imagem de capa. A imagem atual será mantida se nenhuma nova for selecionada.</small>
                             </div>
                             
                             <div id="image-preview-container" class="mb-3 d-none">
-                                <p>Imagem Atual:</p>
+                                <p>Imagem Principal Atual:</p>
                                 <img id="image-preview" src="" alt="Imagem do produto" class="img-fluid rounded" style="max-height: 200px;">
                             </div>
+
+                            <div class="mb-3">
+                                <label for="product-gallery-upload" class="form-label">Adicionar Imagens à Galeria</label>
+                                <input class="form-control" type="file" id="product-gallery-upload" accept="image/png, image/jpeg, image/webp" multiple>
+                                <small class="form-text text-muted">Selecione uma ou mais imagens para a galeria do produto. As imagens atuais serão mantidas.</small>
+                            </div>
                             
+                            <div id="gallery-preview-container" class="mb-3">
+                                <p>Imagens da Galeria Atual:</p>
+                                <div id="gallery-preview" class="d-flex flex-wrap gap-2">
+                                    </div>
+                            </div>
                             <div id="form-error" class="alert alert-danger d-none"></div>
 
                             <div class="d-flex justify-content-between">
@@ -73,6 +89,7 @@
         const productIdField = document.getElementById('product-id');
         const productNameField = document.getElementById('product-name');
         const productDetailsField = document.getElementById('product-details');
+        const productSpecsField = document.getElementById('product-specs');
         const productValueField = document.getElementById('product-value');
         const productQuantityField = document.getElementById('product-quantity');
         const productImageField = document.getElementById('product-image');
@@ -81,13 +98,21 @@
         const saveButton = document.getElementById('save-button');
         const formError = document.getElementById('form-error');
 
-        // Verifica se estamos em modo de edição
+        // ALTERADO: Referências aos novos elementos do HTML
+        const productGalleryUploadField = document.getElementById('product-gallery-upload');
+        const galleryPreviewContainer = document.getElementById('gallery-preview-container');
+        const galleryPreview = document.getElementById('gallery-preview');
+
         const urlParams = new URLSearchParams(window.location.search);
         const editId = urlParams.get('id');
         let existingImageUrl = null;
+        let existingGalleryUrls = []; // ALTERADO: Variável para guardar as URLs da galeria existentes
 
         async function loadProductForEdit() {
-            if (!editId) return;
+            if (!editId) {
+                galleryPreviewContainer.classList.add('d-none'); // Esconde a prévia da galeria se for um novo produto
+                return;
+            };
 
             formTitle.textContent = 'Editar Produto';
             productIdField.value = editId;
@@ -102,6 +127,7 @@
 
             productNameField.value = data.name;
             productDetailsField.value = data.details;
+            productSpecsField.value = data.especificacoes;
             productValueField.value = data.value;
             productQuantityField.value = data.quantity;
             
@@ -109,6 +135,24 @@
                 existingImageUrl = data.image;
                 imagePreview.src = data.image;
                 imagePreviewContainer.classList.remove('d-none');
+            }
+            
+            // ALTERADO: Lógica para exibir as imagens da galeria existentes
+            if (data.imagens && data.imagens.length > 0) {
+                existingGalleryUrls = data.imagens;
+                galleryPreview.innerHTML = ''; // Limpa a prévia antes de adicionar as imagens
+                existingGalleryUrls.forEach(url => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = "Imagem da galeria";
+                    img.className = "img-thumbnail";
+                    img.style.height = '100px';
+                    img.style.width = '100px';
+                    img.style.objectFit = 'cover';
+                    galleryPreview.appendChild(img);
+                });
+            } else {
+                galleryPreviewContainer.classList.add('d-none'); // Esconde se não houver imagens na galeria
             }
         }
 
@@ -119,35 +163,62 @@
             saveButton.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Salvando...`;
 
             try {
+                // 1. Processa a imagem principal (lógica mantida)
                 let imageUrl = existingImageUrl;
-                const file = productImageField.files[0];
+                const mainImageFile = productImageField.files[0];
 
-                if (file) {
-                    // Upload da nova imagem
-                    const filePath = `public/${Date.now()}-${file.name}`;
-                    const { error: uploadError } = await supabase.storage.from('imagensprodutos').upload(filePath, file);
-
+                if (mainImageFile) {
+                    const filePath = `public/${Date.now()}-${mainImageFile.name}`;
+                    const { error: uploadError } = await supabase.storage.from('imagensprodutos').upload(filePath, mainImageFile);
                     if (uploadError) throw uploadError;
-
-                    // Pega a URL pública da imagem
                     const { data: urlData } = supabase.storage.from('imagensprodutos').getPublicUrl(filePath);
                     imageUrl = urlData.publicUrl;
                 }
                 
+                // 2. ALTERADO: Processa as novas imagens da galeria
+                const galleryFiles = productGalleryUploadField.files;
+                let newUploadedUrls = [];
+
+                if (galleryFiles.length > 0) {
+                    // Cria um array de promessas de upload para executar em paralelo
+                    const uploadPromises = Array.from(galleryFiles).map(file => {
+                        const filePath = `public/${Date.now()}-${file.name}`;
+                        return supabase.storage.from('imagensprodutos').upload(filePath, file);
+                    });
+
+                    // Espera todas as promessas de upload serem resolvidas
+                    const uploadResults = await Promise.all(uploadPromises);
+
+                    // Pega as URLs públicas de todos os arquivos enviados com sucesso
+                    newUploadedUrls = uploadResults.map(result => {
+                        if (result.error) {
+                            // Se um dos uploads falhar, joga um erro
+                            throw new Error(`Falha no upload de uma das imagens da galeria: ${result.error.message}`);
+                        }
+                        const { data: urlData } = supabase.storage.from('imagensprodutos').getPublicUrl(result.data.path);
+                        return urlData.publicUrl;
+                    });
+                }
+                
+                // Combina as imagens existentes com as novas
+                const finalGalleryUrls = [...existingGalleryUrls, ...newUploadedUrls];
+
+                // 3. Monta o objeto final do produto
                 const productData = {
                     name: productNameField.value,
                     details: productDetailsField.value,
+                    especificacoes: productSpecsField.value,
                     value: parseFloat(productValueField.value),
                     quantity: parseInt(productQuantityField.value),
                     image: imageUrl,
+                    imagens: finalGalleryUrls // Salva o array combinado
                 };
 
+                // 4. Salva no banco de dados (lógica mantida)
                 let response;
                 if (editId) {
-                    // Atualiza produto existente
                     response = await supabase.from('produtos').update(productData).eq('id', editId);
                 } else {
-                    // Cria novo produto
                     response = await supabase.from('produtos').insert([productData]);
                 }
 
@@ -165,7 +236,6 @@
             }
         });
 
-        // Carrega os dados se estiver editando
         loadProductForEdit();
     </script>
 </body>
