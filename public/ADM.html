@@ -11,6 +11,9 @@
         body { 
             background-color: #212529;
             overflow-x: hidden;
+            /* Remove o espaçamento do topo e adiciona no rodapé para a barra fixa */
+            padding-top: 10px; 
+            padding-bottom: 110px; /* Espaço para a nova barra inferior */
         }
 
         #admin-login-section { min-height: 100vh; }
@@ -22,11 +25,9 @@
         .details-row > td { padding: 0 !important; border: 0; background-color: #2c3034; }
         .details-content { padding: 1.5rem; }
 
-        /* Estilos específicos para telas pequenas (celulares) */
         @media (max-width: 991.98px) {
-            /* Adiciona um espaço no topo para a barra de navegação superior */
             body {
-                padding-top: 56px; /* Altura da navbar */
+                padding-top: 10px; 
             }
 
             /* --- CORREÇÃO PARA O MENU DE ABAS --- */
@@ -69,7 +70,7 @@
                 white-space: nowrap;
             }
         }
-        </style>
+    </style>
 </head>
 <body>
 
@@ -101,7 +102,7 @@
     </div>
 
     <div id="admin-dashboard" class="d-none">
-        <nav class="navbar navbar-dark bg-dark fixed-top shadow-sm">
+        <nav class="navbar navbar-dark bg-dark fixed-bottom shadow-sm">
             <div class="container-fluid">
                 <a class="navbar-brand" href="ADM.html">Painel Byte Bros.TI</a>
                 <div class="d-flex align-items-center">
