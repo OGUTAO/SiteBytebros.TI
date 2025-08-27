@@ -126,7 +126,8 @@
                         </div>
                         <div class="mb-3">
                             <label for="mensagem" class="form-label">Mensagem</label>
-                            <textarea class="form-control" id="mensagem" name="mensagem" rows="5" required></textarea>
+                            <textarea class="form-control" id="mensagem" name="mensagem" rows="5" required maxlength="250"></textarea>
+                            <span id="mensagem-counter" class="char-counter">0 / 250</span>
                         </div>
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">Enviar Mensagem</button>
@@ -213,5 +214,11 @@
 
         loadUserData();
     </script>
+    <script>
+    document.getElementById('mensagem').addEventListener('input', function () {
+        const counter = document.getElementById('mensagem-counter');
+        counter.textContent = this.value.length + ' / 250';
+    });
+</script>
 </body>
 </html>

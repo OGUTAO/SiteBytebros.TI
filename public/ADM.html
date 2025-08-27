@@ -159,7 +159,7 @@
                         <input type="hidden" id="refusal-customer-email">
                         <div class="mb-3">
                             <label for="refusal-reason" class="form-label">Por favor, descreva o motivo para recusar este pedido:</label>
-                            <textarea class="form-control bg-dark text-light" id="refusal-reason" rows="4" required></textarea>
+                            <textarea class="form-control bg-dark text-light" id="refusal-reason" rows="4" required maxlength="500"></textarea>
                         </div>
                     </form>
                 </div>
@@ -493,7 +493,7 @@
                                         <p class="mb-1"><strong>Cidade/UF:</strong> ${order.cidade || ''} - ${order.uf || ''}</p>
                                         <p class="mb-1"><strong>Bairro:</strong> ${order.bairro || ''}</p>
                                         <p class="mb-1"><strong>CEP:</strong> ${order.cep || ''}</p>
-                                        <p class="mb-1"><strong>Referência:</strong> ${order.referencia || 'Nenhuma'}</p>
+                                        <p class="mb-1"><strong>Número:</strong> ${order.numero || ''}</p>
                                     </div>
                                     <div class="col-md-4">
                                         <h5><i class="bi bi-cart3 me-2"></i>Itens do Pedido</h5>

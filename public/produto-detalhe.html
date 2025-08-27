@@ -125,8 +125,8 @@
                         <form id="review-form">
                             <div class="mb-2 review-form-stars" id="form-stars">${renderStars(0)}</div>
                             <input type="hidden" id="review-rating" value="0">
-                            <div class="mb-3"><textarea id="review-comment" class="form-control" rows="3" placeholder="Escreva seu comentário (opcional)..."></textarea></div>
-                            <button type="submit" class="btn btn-primary btn-sm">Enviar Avaliação</button>
+                            <textarea id="review-comment" class="form-control" rows="3" placeholder="Escreva seu comentário (opcional)..." maxlength="250"></textarea>
+                            <span id="review-comment-counter" class="char-counter">0 / 250</span>                            <button type="submit" class="btn btn-primary btn-sm">Enviar Avaliação</button>
                         </form>
                     </div>`;
             } else {
@@ -161,34 +161,54 @@
         function attachReviewFormListeners() {
             const form = document.getElementById('review-form');
             if (!form) return;
+
+            // --- LÓGICA DO CONTADOR DE CARACTERES CORRIGIDA ---
+            const commentTextarea = document.getElementById('review-comment');
+            const commentCounter = document.getElementById('review-comment-counter');
+            if (commentTextarea && commentCounter) {
+                commentTextarea.addEventListener('input', () => {
+                    const currentLength = commentTextarea.value.length;
+                    const maxLength = commentTextarea.getAttribute('maxlength');
+                    commentCounter.textContent = `${currentLength} / ${maxLength}`;
+                });
+            }
+            // --- FIM DA CORREÇÃO ---
+
             const stars = form.querySelectorAll('.review-form-stars .bi-star');
             const ratingInput = document.getElementById('review-rating');
+            
             stars.forEach((star, index) => {
                 star.addEventListener('mouseover', () => {
-                    for(let i = 0; i <= index; i++) stars[i].classList.add('bi-star-fill');
-                    for(let i = index + 1; i < stars.length; i++) stars[i].classList.remove('bi-star-fill');
+                    for (let i = 0; i <= index; i++) stars[i].classList.add('bi-star-fill');
+                    for (let i = index + 1; i < stars.length; i++) stars[i].classList.remove('bi-star-fill');
                 });
                 star.addEventListener('click', () => {
                     ratingInput.value = index + 1;
-                    for(let i = 0; i < stars.length; i++) stars[i].className = i <= index ? 'bi bi-star-fill' : 'bi bi-star';
+                    for (let i = 0; i < stars.length; i++) stars[i].className = i <= index ? 'bi bi-star-fill' : 'bi bi-star';
                 });
             });
+
             form.addEventListener('mouseleave', () => {
                 const currentRating = parseInt(ratingInput.value);
                 stars.forEach((s, i) => s.className = i < currentRating ? 'bi bi-star-fill' : 'bi bi-star');
             });
+
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const rating = parseInt(ratingInput.value);
                 if (rating === 0) { alert('Por favor, selecione uma nota de 1 a 5 estrelas.'); return; }
                 const { data: userProfile } = await supabase.from('usuarios').select('nome_completo').eq('id', currentUser.id).single();
                 const reviewData = {
-                    produto_id: currentProduct.id, user_id: currentUser.id,
-                    user_nome: userProfile.nome_completo, rating: rating,
+                    produto_id: currentProduct.id,
+                    user_id: currentUser.id,
+                    user_nome: userProfile.nome_completo,
+                    rating: rating,
                     comentario: document.getElementById('review-comment').value
                 };
                 const { error } = await supabase.from('avaliacoes').insert(reviewData);
-                if (error) { alert(`Erro ao enviar avaliação: ${error.message}`); } else {
+                if (error) {
+                    alert(`Erro ao enviar avaliação: ${error.message}`);
+                } else {
                     alert('Avaliação enviada com sucesso!');
                     loadReviews();
                 }
@@ -440,7 +460,7 @@
         loadProductDetails();
         updateCartBadge();
     </script>
-     <footer class="footer-detailed mt-auto">
+    <footer class="footer-detailed mt-auto">
     <div class="footer-newsletter py-4">
         <div class="container">
             <div class="row align-items-center">
@@ -449,18 +469,18 @@
                     <p class="mb-0 small">Cadastre-se para não perder nenhuma promoção!</p>
                 </div>
                 <div class="col-lg-7">
-    <form class="row g-2" id="newsletter-form">
-        <div class="col-md-5">
-            <input type="text" class="form-control" id="newsletter-nome" placeholder="Digite seu nome">
-        </div>
-        <div class="col-md-5">
-            <input type="email" class="form-control" id="newsletter-email" placeholder="Digite seu e-mail">
-        </div>
-        <div class="col-md-2 d-grid">
-            <a href="register.html" class="btn btn-primary">Cadastrar</a>
-        </div>
-    </form>
-</div>
+                    <form class="row g-2" id="newsletter-form">
+                        <div class="col-md-5">
+                            <input type="text" class="form-control" id="newsletter-nome" placeholder="Digite seu nome">
+                        </div>
+                        <div class="col-md-5">
+                            <input type="email" class="form-control" id="newsletter-email" placeholder="Digite seu e-mail">
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="submit" class="btn btn-primary">Cadastrar</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -489,21 +509,13 @@
                 </ul>
             </div>
             <div class="col-lg-3 col-md-6 mb-4">
-                <h5>Políticas e Termos</h5>
+                <h5>Contato</h5>
                 <ul class="list-unstyled">
-                    <li><a href="#">Políticas de Privacidade</a></li>
-                    <li><a href="#">Política de Devolução</a></li>
-                    <li><a href="#">Termos de Uso</a></li>
+                    <li class="d-flex align-items-center mb-2"><i class="bi bi-envelope-fill me-2"></i>bytebrosti@gmail.com</li>
+                    <li class="d-flex align-items-center"><i class="bi bi-whatsapp me-2"></i>(61) 99914-4748</li>
                 </ul>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
-                    <h5>Contato</h5>
-                    <ul class="nav flex-column">
-                        <li class="nav-item"><i class="bi bi-envelope-fill me-2"></i>bytebrosti@gmail.com</li>
-                        <li class="nav-item mt-2"><i class="bi bi-whatsapp me-2"></i>(61) 99914-4748</li>
-                    </ul>
-                </div>
         <hr style="border-color: rgba(255,255,255,0.1);">
         <div class="row align-items-center mt-4 footer-social-media">
             <div class="col-md-6">
@@ -514,12 +526,26 @@
             </div>
         </div>
     </div>
-    <div class="footer-b">
+    <div class="footer-bottom">
         <div class="container">
             <p class="mb-0">&copy; 2025 ByteBrosTI. Todos os direitos reservados. CNPJ: 00.000.000/0001-00</p>
             <p class="mb-0">Preços e condições de pagamento são exclusivos para compras via internet. Os preços anunciados neste site podem ser alterados sem prévio aviso.</p>
         </div>
     </div>
 </footer>
+
+<script>
+    // Script da newsletter que passa os dados para a página de cadastro
+    const newsletterForm = document.getElementById('newsletter-form');
+    if (newsletterForm) {
+        newsletterForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('newsletter-nome').value;
+            const email = document.getElementById('newsletter-email').value;
+            const url = `register.html?nome=${encodeURIComponent(nome)}&email=${encodeURIComponent(email)}`;
+            window.location.href = url;
+        });
+    }
+</script>
 </body>
 </html>

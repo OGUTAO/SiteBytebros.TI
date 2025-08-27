@@ -54,7 +54,8 @@
                         </div>
                         <div class="mb-3">
                             <label for="descricao" class="form-label">Descreva o que você precisa</label>
-                            <textarea class="form-control" id="descricao" name="descricao" rows="5" required placeholder="Ex: Meu computador não liga, preciso de um upgrade de memória, etc."></textarea>
+                            <textarea class="form-control" id="descricao" name="descricao" rows="5" required placeholder="Descreva o mais detalhado possível para um atendimento mais rápido" maxlength="250"></textarea>
+                            <span id="descricao-counter" class="char-counter">0 / 250</span>
                         </div>
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">Enviar Solicitação</button>
@@ -165,5 +166,11 @@
             });
         }
     </script>
+    <script>
+    document.getElementById('descricao').addEventListener('input', function () {
+        const counter = document.getElementById('descricao-counter');
+        counter.textContent = this.value.length + ' / 250';
+    });
+</script>
 </body>
 </html>

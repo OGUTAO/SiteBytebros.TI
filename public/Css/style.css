@@ -260,6 +260,15 @@ body {
     transform: translateX(-50%); /* Centraliza o logo horizontalmente */
 }
 
+/* Estilo para o contador de caracteres */
+.char-counter {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+    text-align: right;
+    display: block; /* Garante que ele apareça abaixo do campo */
+    margin-top: 4px;
+}
+
 /* Estilos para o carrossel de serviços na página inicial */
 .carousel-item-services .card-img-top {
     height: 200px;
