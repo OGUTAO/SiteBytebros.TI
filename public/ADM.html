@@ -81,8 +81,12 @@
 
                 <h2>Acesso Restrito</h2>
                 <p class="text-muted">Painel de Administração</p>
-            </div>
+                </div>
             <form id="admin-login-form">
+                <div class="mb-3" id="email-wrapper" style="display: none;">
+                    <label for="admin-email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="admin-email">
+                </div>
                 <div class="mb-3">
                     <label for="admin-password" class="form-label">Senha</label>
                     <input type="password" class="form-control" id="admin-password" required>
@@ -190,6 +194,13 @@
         const refusalModal = new bootstrap.Modal(refusalModalEl);
         const confirmRefusalBtn = document.getElementById('confirm-refusal-btn');
 
+        // --- Novas variáveis para o fluxo de login ---
+        const loginPrompt = document.getElementById('login-prompt');
+        const emailWrapper = document.getElementById('email-wrapper');
+        const adminEmailInput = document.getElementById('admin-email');
+        const adminPasswordInput = document.getElementById('admin-password');
+        let currentUserEmail = null; 
+
         let allOrders = [];
         let allProducts = []; 
         let allInteractions = [];
@@ -198,22 +209,23 @@
         let currentAdminName = null; 
         let currentAdminEmail = null; 
         const SUPER_ADMIN_USER_ID = '3e88709d-ad2c-4729-958d-73185a162cfa';
-
         let presenceChannel = null;
         let onlineAdmins = {};
 
-        function updateAllPresenceIndicators() {
-            const indicators = document.querySelectorAll('.presence-indicator');
-            indicators.forEach(indicator => {
-                const userId = indicator.dataset.userId;
-                if (onlineAdmins[userId]) {
-                    indicator.classList.add('online');
-                    indicator.setAttribute('title', 'Online');
-                } else {
-                    indicator.classList.remove('online');
-                    indicator.setAttribute('title', 'Offline');
-                }
-            });
+
+        // --- Funções de UI ---
+        function showLogin() {
+            loginSection.classList.remove('d-none');
+            loginSection.style.display = 'flex';
+            dashboardSection.classList.add('d-none');
+        }
+
+        function showDashboard(email) {
+            loginSection.classList.add('d-none');
+            loginSection.style.display = 'none';
+            dashboardSection.classList.remove('d-none');
+            adminEmailDisplay.textContent = email;
+            loadTabContent('v-pills-dashboard');
         }
 
         function initializePresence(user) {
@@ -254,53 +266,121 @@
                 });
         }
 
-        async function checkAdminStatus() {
+        function updateAllPresenceIndicators() {
+            const indicators = document.querySelectorAll('.presence-indicator');
+            indicators.forEach(indicator => {
+                const userId = indicator.dataset.userId;
+                if (onlineAdmins[userId]) {
+                    indicator.classList.add('online');
+                    indicator.setAttribute('title', 'Online');
+                } else {
+                    indicator.classList.remove('online');
+                    indicator.setAttribute('title', 'Offline');
+                }
+            });
+        }
+
+
+        // --- NOVA LÓGICA DE ACESSO AO PAINEL ---
+        async function checkAdminAccess() {
+            // 1. Verifica se o admin já se autenticou na sessão do navegador
+            if (sessionStorage.getItem('isAdminAuthenticated') === 'true') {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    currentUserId = session.user.id;
+                    currentAdminEmail = session.user.email;
+                    const { data: userProfile } = await supabase.from('usuarios').select('nome_completo').eq('id', session.user.id).single();
+                    currentAdminName = userProfile.nome_completo;
+                    showDashboard(session.user.email);
+                    initializePresence(session.user);
+                    return;
+                } else {
+                    sessionStorage.removeItem('isAdminAuthenticated');
+                }
+            }
+            
+            // 2. Se não, verifica se há um usuário logado no site
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) { 
-                showLogin(); 
-                return; 
-            }
-            currentUserId = session.user.id;
-
-            const { data: userProfile, error } = await supabase.from('usuarios').select('is_admin, nome_completo').eq('id', session.user.id).single();
-
-            if (error || !userProfile || !userProfile.is_admin) {
-                showLogin();
-                loginError.textContent = "Acesso negado. Esta área é restrita para administradores.";
-                loginError.classList.remove('d-none');
+            if (session) {
+                const { data: profile } = await supabase.from('usuarios').select('is_admin').eq('id', session.user.id).single();
+                if (profile && profile.is_admin) {
+                    currentUserEmail = session.user.email;
+                    if(loginPrompt) loginPrompt.textContent = `Confirme sua senha para continuar como ${currentUserEmail}`;
+                    if(emailWrapper) emailWrapper.style.display = 'none';
+                    if(adminEmailInput) adminEmailInput.required = false;
+                    showLogin();
+                } else {
+                    await supabase.auth.signOut();
+                    if(loginPrompt) loginPrompt.textContent = 'Acesso negado. Esta área é restrita para administradores.';
+                    if(loginForm) loginForm.style.display = 'none';
+                    showLogin();
+                }
             } else {
-                currentAdminName = userProfile.nome_completo;
-                currentAdminEmail = session.user.email;
-                showDashboard(session.user.email);
-                initializePresence(session.user);
-                loadTabContent('v-pills-dashboard');
+                // 3. Se ninguém estiver logado, pede e-mail e senha
+                currentUserEmail = null;
+                if(loginPrompt) loginPrompt.textContent = 'Faça login com suas credenciais de administrador.';
+                if(emailWrapper) emailWrapper.style.display = 'block';
+                if(adminEmailInput) adminEmailInput.required = true;
+                showLogin();
             }
         }
 
-        function showLogin() { 
-            loginSection.classList.remove('d-none'); 
-            dashboardSection.classList.add('d-none'); 
-        }
 
-        function showDashboard(email) { 
-            loginSection.classList.add('d-none'); 
-            dashboardSection.classList.remove('d-none'); 
-            adminEmailDisplay.textContent = email; 
-        }
-
+        // Substitua pelo novo código abaixo
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            loginError.classList.add('d-none');
             const btn = e.submitter;
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Entrando...`;
-            const { error } = await supabase.auth.signInWithPassword({ email: document.getElementById('admin-email').value, password: document.getElementById('admin-password').value });
+
+            let email;
+            const password = adminPasswordInput.value;
+
+            // Lógica corrigida: Verifica a sessão novamente no momento do clique
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session) {
+                // Se já existe uma sessão, o e-mail é o da sessão (campo de e-mail está escondido)
+                email = session.user.email;
+            } else {
+                // Se não há sessão, o e-mail vem do campo que está visível na tela
+                email = adminEmailInput.value;
+            }
+
+            if (!email) {
+                // Mensagem de erro mais clara caso algo dê errado
+                loginError.textContent = "E-mail não identificado. Por favor, preencha o campo ou tente recarregar a página.";
+                loginError.classList.remove('d-none');
+                if(emailWrapper) emailWrapper.style.display = 'block'; // Mostra o campo de e-mail
+                btn.disabled = false;
+                btn.innerHTML = 'Entrar';
+                return;
+            }
+
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+
             if (error) {
-                loginError.textContent = "Email ou senha inválidos.";
+                loginError.textContent = "Credenciais inválidas.";
                 loginError.classList.remove('d-none');
                 btn.disabled = false;
                 btn.innerHTML = 'Entrar';
-            } else { 
-                await checkAdminStatus(); 
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                const { data: profile } = await supabase.from('usuarios').select('is_admin, nome_completo').eq('id', user.id).single();
+                
+                if (profile && profile.is_admin) {
+                    sessionStorage.setItem('isAdminAuthenticated', 'true');
+                    currentUserId = user.id;
+                    currentAdminEmail = user.email;
+                    currentAdminName = profile.nome_completo;
+                    showDashboard(email);
+                    initializePresence(user);
+                } else {
+                    await supabase.auth.signOut();
+                    loginError.textContent = "Acesso negado. Você não tem permissão de administrador.";
+                    loginError.classList.remove('d-none');
+                }
             }
         });
 
