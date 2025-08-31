@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Dados - Byte Bros.TI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="d-flex flex-column min-vh-100 bg-body-tertiary">
+
+    <nav class="navbar navbar-expand-lg bg-body shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <span class="logo-text">BYTE BROS.TI</span>
+            </a>
+            <div class="d-flex align-items-center ms-auto">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Menu Principal</a></li>
+                </ul>
+                <button class="btn btn-sm ms-3" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <h1 class="display-5 mb-4 text-center">Meus Dados</h1>
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <form id="profile-form">
+                            <div class="alert alert-success d-none" id="success-alert">Seus dados foram atualizados com sucesso!</div>
+                            <div class="alert alert-danger d-none" id="error-alert"></div>
+                            
+                            <h5 class="mb-3">Informações Pessoais</h5>
+                            <div class="mb-3">
+                                <label for="nome_completo" class="form-label">Nome Completo</label>
+                                <input type="text" class="form-control" id="nome_completo" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="telefone" class="form-label">Telefone</label>
+                                <input type="tel" class="form-control" id="telefone" required>
+                            </div>
+
+                            <hr>
+
+                            <h5 class="mb-3">Dados da Conta</h5>
+                             <div class="mb-3">
+                                <label for="email" class="form-label">E-mail</label>
+                                <div class="input-group">
+                                    <input type="email" class="form-control" id="email" disabled>
+                                    <a href="change-email.html" class="btn btn-outline-secondary">Alterar</a>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Senha</label>
+                                <a href="forgot-password.html" class="btn btn-outline-secondary w-100">Alterar Senha</a>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="nascimento" class="form-label">Data de Nascimento</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="nascimento" disabled>
+                                    <a href="atendimento.html" class="btn btn-outline-secondary">Solicitar Alteração</a>
+                                </div>
+                                <small class="form-text text-muted">Para sua segurança, a alteração da (data de nascimento) deve ser feita através do nosso suporte.</small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="cpf" class="form-label">CPF</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="cpf" disabled>
+                                    <a href="atendimento.html" class="btn btn-outline-secondary">Solicitar Alteração</a>
+                                </div>
+                                <small class="form-text text-muted">Para sua segurança, a alteração de dados sensíveis como (CPF) deve ser feita através do nosso suporte.</small>
+                            </div>
+
+                            <hr>
+
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" id="save-button" class="btn btn-primary">Salvar Alterações</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4 text-muted">
+                    <p>Caso não esteja conseguindo mudar algum dado, <a href="atendimento.html">entre em contato com a gente</a>.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { supabase } from './js/supabase-client.js';
+
+        const profileForm = document.getElementById('profile-form');
+        const nomeCompletoInput = document.getElementById('nome_completo');
+        const telefoneInput = document.getElementById('telefone');
+        const emailInput = document.getElementById('email');
+        const nascimentoInput = document.getElementById('nascimento');
+        const cpfInput = document.getElementById('cpf');
+        const saveButton = document.getElementById('save-button');
+        const successAlert = document.getElementById('success-alert');
+        const errorAlert = document.getElementById('error-alert');
+        let currentUser = null;
+
+        async function loadUserData() {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = session.user;
+            emailInput.value = currentUser.email;
+
+            const { data: profile, error: profileError } = await supabase
+                .from('usuarios')
+                .select('nome_completo, telefone, nascimento, cpf')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if (profile) {
+                nomeCompletoInput.value = profile.nome_completo || '';
+                telefoneInput.value = profile.telefone || '';
+                cpfInput.value = profile.cpf || '';
+                if (profile.nascimento) {
+                    const [year, month, day] = profile.nascimento.split('-');
+                    nascimentoInput.value = `${day}/${month}/${year}`;
+                }
+            } else if (profileError) {
+                errorAlert.textContent = 'Erro ao carregar seus dados.';
+                errorAlert.classList.remove('d-none');
+            }
+        }
+
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Salvando...';
+            successAlert.classList.add('d-none');
+            errorAlert.classList.add('d-none');
+
+            const updatedProfile = {
+                nome_completo: nomeCompletoInput.value,
+                telefone: telefoneInput.value
+            };
+
+            const { error } = await supabase
+                .from('usuarios')
+                .update(updatedProfile)
+                .eq('id', currentUser.id);
+            
+            if (error) {
+                errorAlert.textContent = `Erro ao salvar: ${error.message}`;
+                errorAlert.classList.remove('d-none');
+            } else {
+                successAlert.classList.remove('d-none');
+                await supabase.auth.updateUser({ data: { nome_completo: updatedProfile.nome_completo } });
+            }
+
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Salvar Alterações';
+        });
+
+        // Lógica do tema
+        const themeToggle = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const newTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+        }
+
+        loadUserData();
+    </script>
+</body>
+</html>
