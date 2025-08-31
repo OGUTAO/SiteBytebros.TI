@@ -16,6 +16,7 @@
                 <span class="logo-text">BYTE BROS.TI</span>
                 <div class="logo-subtext">Soluções Tecnológicas</div>
             </a>
+            <button class="btn btn-sm ms-auto" id="theme-toggle"><i class="bi bi-moon-stars-fill"></i></button>
         </div>
     </nav>
 
@@ -30,15 +31,15 @@
             <form id="register-form">
                 <div class="mb-3">
                     <label for="name" class="form-label">Nome Completo</label>
-                    <input type="text" class="form-control" id="name" required>
+                    <input type="text" class="form-control" id="name" required maxlength="50">
                 </div>
                 <div class="mb-3">
                     <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" required>
+                    <input type="email" class="form-control" id="email" required maxlength="30">
                 </div>
                  <div class="mb-3">
                     <label for="phone" class="form-label">Telefone</label>
-                    <input type="tel" class="form-control" id="phone" required>
+                    <input type="tel" class="form-control" id="phone" required maxlength="15">
                 </div>
                 <div class="mb-3">
                     <label for="nascimento" class="form-label">Data de Nascimento</label>
@@ -46,15 +47,15 @@
                 </div>
                 <div class="mb-3">
                     <label for="cpf" class="form-label">CPF</label>
-                    <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+                    <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required maxlength="14">
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Senha</label>
-                    <input type="password" class="form-control" id="password" required>
+                    <input type="password" class="form-control" id="password" required maxlength="20">
                 </div>
                 <div class="mb-3">
                     <label for="confirm-password" class="form-label">Confirmar Senha</label>
-                    <input type="password" class="form-control" id="confirm-password" required>
+                    <input type="password" class="form-control" id="confirm-password" required maxlength="20">
                 </div>
                 
                 <div id="error-message" class="alert alert-danger d-none" role="alert"></div>
@@ -164,10 +165,6 @@
         });
     </script>
 
-    <script type="module">
-        // Lógica do tema (mantida)
-    </script>
-
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const cpfInput = document.getElementById('cpf');
@@ -177,7 +174,6 @@
                 });
             }
 
-            // Script para preencher dados da newsletter (mantido)
             const urlParams = new URLSearchParams(window.location.search);
             const nome = urlParams.get('nome');
             const email = urlParams.get('email');
@@ -188,6 +184,28 @@
             
             if (email) {
                 document.getElementById('email').value = email;
+            }
+
+            // Define a data máxima para o campo de nascimento como hoje
+            const nascimentoInput = document.getElementById('nascimento');
+            if (nascimentoInput) {
+                nascimentoInput.max = new Date().toISOString().split("T")[0];
+            }
+
+            // Lógica do Tema
+            const themeToggle = document.getElementById('theme-toggle');
+            function applyTheme() {
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            }
+            applyTheme();
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-bs-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
             }
         });
     </script>

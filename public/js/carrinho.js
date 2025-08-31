@@ -1,4 +1,5 @@
-// Garante que o DOM está totalmente carregado antes de executar o script
+import { supabase } from './supabase-client.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const cartItemsContainer = document.getElementById('cart-items-container');
     const subtotalValueEl = document.getElementById('subtotal-value');
@@ -7,20 +8,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const deliveryForm = document.getElementById('delivery-form');
     const cepInput = document.getElementById('cep');
     const cepBtn = document.getElementById('cep-btn');
+    const addressSelectionContainer = document.getElementById('address-selection-container');
+    const savedAddressesSelect = document.getElementById('saved-addresses');
 
-    // Formata um número para o padrão de moeda brasileira (BRL)
     function formatCurrency(value) {
         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    // Renderiza (desenha) os itens do carrinho na tela
     function renderCart() {
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        cartItemsContainer.innerHTML = ''; // Limpa a lista antes de redesenhar
+        cartItemsContainer.innerHTML = ''; 
 
         if (cart.length === 0) {
             cartItemsContainer.innerHTML = '<p class="text-center text-muted">Seu carrinho está vazio.</p>';
-            checkoutBtn.disabled = true; // Desabilita o botão de finalizar
+            checkoutBtn.disabled = true; 
         } else {
             const itemList = document.createElement('div');
             itemList.className = 'list-group list-group-flush';
@@ -28,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cart.forEach(item => {
                 const itemEl = document.createElement('div');
                 itemEl.className = 'list-group-item d-flex align-items-center flex-wrap';
-                // <-- MUDANÇA: Adicionado exibição de estoque e desativação do botão '+'
                 itemEl.innerHTML = `
                     <div class="flex-shrink-0">
                         <img src="${item.image || 'img/default_product.jpg'}" alt="${item.name}" class="cart-item-img">
@@ -61,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
         attachEventListeners();
     }
 
-    // Atualiza o resumo de subtotal, frete e total
     function updateSummary() {
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
         const subtotal = cart.reduce((acc, item) => acc + (item.value * item.quantity), 0);
@@ -75,8 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
         totalValueEl.textContent = formatCurrency(total);
     }
     
-    // <-- MUDANÇA: Lógica de validação de estoque adicionada aqui
-    // Atualiza a quantidade de um item no carrinho
     function updateCart(productId, change) {
         let cart = JSON.parse(localStorage.getItem('cart')) || [];
         const itemIndex = cart.findIndex(item => String(item.id) === String(productId));
@@ -85,24 +82,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = cart[itemIndex];
             const newQuantity = item.quantity + change;
 
-            // Se estiver tentando adicionar mais que o estoque, mostre um alerta e pare a função
             if (change > 0 && newQuantity > item.stock) {
                 alert(`Limite de estoque atingido para "${item.name}". Apenas ${item.stock} unidades disponíveis.`);
-                return; // Impede a alteração
+                return;
             }
             
             item.quantity = newQuantity;
 
-            // Remove o item se a quantidade for 0 ou menor
             if (item.quantity <= 0) {
                 cart.splice(itemIndex, 1);
             }
         }
         localStorage.setItem('cart', JSON.stringify(cart));
-        renderCart(); // Redesenha o carrinho com os novos dados
+        renderCart();
     }
 
-    // Remove um item completamente do carrinho
     function removeFromCart(productId) {
         let cart = JSON.parse(localStorage.getItem('cart')) || [];
         cart = cart.filter(item => String(item.id) !== String(productId));
@@ -110,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCart();
     }
 
-    // Adiciona os eventos de clique para os botões de controle (sem alteração aqui)
     function attachEventListeners() {
         cartItemsContainer.querySelectorAll('button[data-change]').forEach(button => {
             button.addEventListener('click', () => {
@@ -129,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Busca o CEP usando a API ViaCEP (sem alteração aqui)
     async function fetchCep(cep) {
         const cepBtnIcon = cepBtn.querySelector('.bi');
         const cepBtnSpinner = cepBtn.querySelector('.cep-loading');
@@ -157,7 +149,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Evento de clique no botão de buscar CEP (sem alteração aqui)
+    async function loadAddresses() {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            addressSelectionContainer.innerHTML = '<p class="text-muted small">Faça <a href="login.html">login</a> para usar seus endereços salvos.</p>';
+            return;
+        }
+
+        const { data: addresses, error } = await supabase
+            .from('enderecos')
+            .select('*')
+            .eq('user_id', session.user.id);
+
+        if (error || !addresses || addresses.length === 0) {
+            savedAddressesSelect.innerHTML = '<option value="">Nenhum endereço salvo. Preencha abaixo.</option>';
+            return;
+        }
+
+        savedAddressesSelect.innerHTML = '<option value="">Selecione um endereço...</option>';
+        addresses.forEach(addr => {
+            const option = document.createElement('option');
+            option.value = addr.id;
+            option.textContent = `${addr.apelido} - ${addr.endereco}, ${addr.numero}`;
+            option.dataset.address = JSON.stringify(addr);
+            savedAddressesSelect.appendChild(option);
+        });
+
+        savedAddressesSelect.addEventListener('change', (e) => {
+            if (e.target.value) {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                const address = JSON.parse(selectedOption.dataset.address);
+                document.getElementById('cep').value = address.cep;
+                document.getElementById('endereco').value = address.endereco;
+                document.getElementById('numero').value = address.numero;
+                document.getElementById('complemento').value = address.complemento || '';
+                document.getElementById('referencia').value = address.referencia || '';
+                document.getElementById('bairro').value = address.bairro;
+                document.getElementById('cidade').value = address.cidade;
+                document.getElementById('uf').value = address.uf;
+            }
+        });
+    }
+
     cepBtn.addEventListener('click', () => {
         const cep = cepInput.value.replace(/\D/g, '');
         if (cep.length === 8) {
@@ -167,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Evento de clique no botão de ir para o pagamento
     checkoutBtn.addEventListener('click', () => {
         if (!deliveryForm.checkValidity()) {
             deliveryForm.classList.add('was-validated');
@@ -175,13 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // <-- MUDANÇA: Verificação final de estoque antes de prosseguir
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
         const itemOverStock = cart.find(item => item.quantity > item.stock);
 
         if (itemOverStock) {
             alert(`O produto "${itemOverStock.name}" tem mais itens no carrinho do que o disponível em estoque. Por favor, ajuste a quantidade.`);
-            return; // Impede o checkout
+            return; 
         }
 
         const deliveryAddress = {
@@ -189,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             endereco: document.getElementById('endereco').value,
             numero: document.getElementById('numero').value,
             complemento: document.getElementById('complemento').value,
+            referencia: document.getElementById('referencia').value,
             bairro: document.getElementById('bairro').value,
             cidade: document.getElementById('cidade').value,
             uf: document.getElementById('uf').value,
@@ -199,6 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'pagamento.html';
     });
 
-    // Função de inicialização que desenha o carrinho quando a página carrega
     renderCart();
+    loadAddresses();
 });

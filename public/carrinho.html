@@ -26,7 +26,6 @@
 </head>
 <body class="d-flex flex-column min-vh-100 bg-body-tertiary">
 
-    <!-- INÍCIO DA MODIFICAÇÃO NO NAVBAR -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="index.html">
@@ -38,8 +37,6 @@
             </div>
         </div>
     </nav>
-    <!-- FIM DA MODIFICAÇÃO NO NAVBAR -->
-
     <main class="container my-5">
         <div class="text-center mb-4">
             <h1><i class="bi bi-cart3"></i> Seu Carrinho</h1>
@@ -82,10 +79,16 @@
                             </li>
                         </ul>
 
+                        <hr>
+                        <div id="address-selection-container" class="mb-3">
+                            <label for="saved-addresses" class="form-label"><strong>Selecionar Endereço</strong></label>
+                            <select id="saved-addresses" class="form-select"></select>
+                        </div>
+
                         <form id="delivery-form" class="needs-validation" novalidate>
                             <h6 class="mb-3">Endereço de Entrega</h6>
                             <div class="input-group mb-3">
-                                <input type="text" class="form-control" id="cep" placeholder="00000-000" required>
+                                <input type="text" class="form-control" id="cep" placeholder="00000-000" required maxlength="40">
                                 <button id="cep-btn" class="btn btn-outline-secondary" type="button">
                                     <i class="bi bi-search"></i>
                                     <div class="spinner-border spinner-border-sm cep-loading" role="status"></div>
@@ -93,7 +96,7 @@
                                 <div class="invalid-feedback w-100">CEP é obrigatório.</div>
                             </div>
                             <div class="mb-3">
-                                <input type="text" class="form-control" id="endereco" placeholder="Endereço" required>
+                                <input type="text" class="form-control" id="endereco" placeholder="Endereço" required maxlength="40">
                                  <div class="invalid-feedback">Endereço é obrigatório.</div>
                             </div>
                             <div class="row g-3 mb-3">
@@ -102,16 +105,19 @@
                                     <div class="invalid-feedback">Número é obrigatório.</div>
                                 </div>
                                 <div class="col-sm-6">
-                                    <input type="text" class="form-control" id="complemento" placeholder="Complemento" maxlength="100">
+                                    <input type="text" class="form-control" id="complemento" placeholder="Complemento" maxlength="40">
                                 </div>
                             </div>
                              <div class="mb-3">
-                                <input type="text" class="form-control" id="bairro" placeholder="Bairro" required maxlength="50">
+                                <input type="text" class="form-control" id="referencia" placeholder="Ponto de Referência" maxlength="40">
+                            </div>
+                             <div class="mb-3">
+                                <input type="text" class="form-control" id="bairro" placeholder="Bairro" required maxlength="40">
                                  <div class="invalid-feedback">Bairro é obrigatório.</div>
                             </div>
                              <div class="row g-3">
                                 <div class="col-sm-8">
-                                    <input type="text" class="form-control" id="cidade" placeholder="Cidade" required maxlength="50">
+                                    <input type="text" class="form-control" id="cidade" placeholder="Cidade" required maxlength="40">
                                     <div class="invalid-feedback">Cidade é obrigatória.</div>
                                 </div>
                                 <div class="col-sm-4">
