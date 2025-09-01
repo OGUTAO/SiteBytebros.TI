@@ -44,6 +44,15 @@
                 white-space: nowrap;
             }
 
+            .order-pending {
+                /* Adiciona uma borda amarela na lateral da linha para destacar */
+                border-left: 4px solid var(--bs-warning);
+            }
+            /* Opcional: Adiciona um fundo sutil para a linha inteira */
+            .order-pending > td {
+                background-color: rgba(255, 193, 7, 0.05);
+            }
+
             /* Mantém a correção para a aba "Equipe" */
             #v-pills-team .list-group-item {
                 flex-wrap: wrap;
@@ -123,6 +132,7 @@
                         <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
                             <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</button>
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-orders"><i class="bi bi-receipt me-2"></i>Pedidos</button>
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-returns"><i class="bi bi-arrow-return-left me-2"></i>Cancel./Devoluções</button>
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-interactions"><i class="bi bi-headset me-2"></i>Interações</button>
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-products"><i class="bi bi-box-seam me-2"></i>Produtos</button>
                             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-news"><i class="bi bi-newspaper me-2"></i>Notícias</button>
@@ -135,6 +145,7 @@
                     <div class="tab-content card bg-dark text-light border-secondary p-4" id="v-pills-tabContent">
                         <div class="tab-pane fade show active" id="v-pills-dashboard"></div>
                         <div class="tab-pane fade" id="v-pills-orders"></div>
+                        <div class="tab-pane fade" id="v-pills-returns"></div>
                         <div class="tab-pane fade" id="v-pills-products"></div>
                         <div class="tab-pane fade" id="v-pills-news"></div>
                         <div class="tab-pane fade" id="v-pills-interactions"></div>
@@ -193,18 +204,17 @@
         const refusalModalEl = document.getElementById('refusalModal');
         const refusalModal = new bootstrap.Modal(refusalModalEl);
         const confirmRefusalBtn = document.getElementById('confirm-refusal-btn');
-
-        // --- Novas variáveis para o fluxo de login ---
         const loginPrompt = document.getElementById('login-prompt');
         const emailWrapper = document.getElementById('email-wrapper');
         const adminEmailInput = document.getElementById('admin-email');
         const adminPasswordInput = document.getElementById('admin-password');
-        let currentUserEmail = null; 
 
+        let currentUserEmail = null; 
         let allOrders = [];
         let allProducts = []; 
         let allInteractions = [];
         let allClients = [];
+        let allReturnRequests = [];
         let currentUserId = null;
         let currentAdminName = null; 
         let currentAdminEmail = null; 
@@ -427,9 +437,9 @@
         });
 
         document.querySelectorAll('#v-pills-tab button').forEach(tab => {
-            tab.addEventListener('shown.bs.tab', (event) => {
-                const targetId = event.target.getAttribute('data-bs-target').substring(1);
-                loadTabContent(targetId);
+        tab.addEventListener('shown.bs.tab', (event) => {
+            const targetId = event.target.getAttribute('data-bs-target').substring(1);
+            loadTabContent(targetId);
             });
         });
 
@@ -440,6 +450,7 @@
                 switch (tabId) {
                     case 'v-pills-dashboard': await renderDashboard(contentArea); break;
                     case 'v-pills-orders': await renderOrders(contentArea); break;
+                    case 'v-pills-returns': await renderReturnsDashboard(contentArea); break;
                     case 'v-pills-products': await renderProducts(contentArea); break;
                     case 'v-pills-news': await renderNews(contentArea); break;
                     case 'v-pills-interactions': await renderInteractions(contentArea); break;
@@ -448,7 +459,7 @@
                 }
             } catch (err) { contentArea.innerHTML = `<div class="alert alert-danger">${err.message}</div>`; }
         }
-        
+            
         async function renderDashboard(container) {
             const { count: clientCount } = await supabase.from('usuarios').select('*', { count: 'exact', head: true });
             const { count: productCount } = await supabase.from('produtos').select('*', { count: 'exact', head: true });
@@ -462,37 +473,23 @@
                 </div>`;
         }
 
-        // --- SEÇÃO DE PEDIDOS (TOTALMENTE MODIFICADA) ---
-        async function renderOrders(container) {
-            container.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"></div></div>`;
+        // SUBSTITUA A FUNÇÃO handleReturnFilter INTEIRA POR ESTA
+        function handleReturnFilter() {
+            const activeFilter = document.querySelector('#return-filter-pills .nav-link.active').dataset.filter;
             
-            const { data, error } = await supabase.from('pedidos')
-                .select(`*, usuario:usuarios(nome_completo, email, telefone)`)
-                .order('criado_em', { ascending: false });
-
-            if (error) {
-                container.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
-                return;
+            let filtered = [];
+            if (activeFilter === 'pendentes') {
+                filtered = allReturnRequests.filter(r => ['Cancelamento Solicitado', 'Devolução Solicitada'].includes(r.status));
+            } else if (activeFilter === 'aprovadas') {
+                filtered = allReturnRequests.filter(r => ['Cancelado', 'Devolução Aprovada'].includes(r.status));
+            } else if (activeFilter === 'recusadas') {
+                filtered = allReturnRequests.filter(r => ['Devolução Recusada'].includes(r.status));
             }
-            allOrders = data;
 
-            container.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Pedidos da Loja</h2>
-                <input type="search" id="order-search-input" class="form-control w-50" placeholder="Buscar por Cliente, Email ou ID..." autocomplete="off">
-            </div>
-            <div class="table-responsive">
-                <table class="table table-dark table-hover fixed-table-layout">
-                    <thead><tr><th style="width: 5%;"></th><th>Cliente</th><th class="text-end">Valor Total</th><th class="text-center">Data</th><th class="text-center">Status</th><th class="text-center">Ações</th></tr></thead>
-                    <tbody id="orders-table-body"></tbody>
-                </table>
-            </div>
-        `;
-            
-            document.getElementById('order-search-input').addEventListener('input', handleOrderSearch);
-            populateOrdersTable(allOrders);
+            populateReturnsAccordion(filtered);
         }
 
+        // SUBSTITUA A FUNÇÃO populateOrdersTable POR ESTA
         async function populateOrdersTable(orders) {
             const tableBody = document.getElementById('orders-table-body');
             const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
@@ -500,32 +497,49 @@
             if (!tableBody) return;
 
             if (!orders || orders.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">Nenhum pedido encontrado.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">Nenhum pedido encontrado para este filtro.</td></tr>';
                 return;
             }
 
             tableBody.innerHTML = '';
             for (const order of orders) {
                 const { data: items } = await supabase.from('itens_pedido').select(`*, produto:produtos(name)`).eq('pedido_id', order.id);
-                
+
                 const createdDate = new Date(order.criado_em).toLocaleString('pt-BR');
 
                 const deleteButtonHtml = isSuperAdmin
                     ? `<button class="btn btn-sm btn-danger delete-order-btn" data-order-id="${order.id}" title="Excluir Pedido"><i class="bi bi-trash"></i></button>`
                     : '';
-                
+
+                    const isPending = order.status === 'Pendente';
+                    const newBadgeHtml = isPending ? '<span class="badge bg-warning text-dark ms-2">Novo</span>' : '';
+
+                // Lógica para exibir o motivo da recusa e o histórico do admin
+                let adminActionHtml = '';
+                if (order.acao_admin_nome) {
+                    const actionDate = new Date(order.acao_admin_data).toLocaleString('pt-BR');
+                    adminActionHtml += `
+                        <p class="mb-1 mt-3"><small><strong>Última Ação por:</strong> ${order.acao_admin_nome}</small></p>
+                        <p class="mb-1"><small><strong>Data:</strong> ${actionDate}</small></p>
+                    `;
+                }
+                if (order.motivo_recusa) {
+                    adminActionHtml += `<p class="mb-0 text-danger"><small><strong>Motivo:</strong> ${order.motivo_recusa}</small></p>`;
+                }
+
+
                 const itemsHtml = items && items.length > 0
-                    ? items.map(i => `<li class="list-group-item d-flex justify-content-between align-items-center">
+                    ? items.map(i => `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
                                             <span>${i.quantidade}x ${i.produto?.name || 'Produto indisponível'}</span>
                                             <span class="badge bg-primary rounded-pill">${parseFloat(i.valor_unitario * i.quantidade).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                         </li>`).join('')
-                    : '<li class="list-group-item">Nenhum item encontrado.</li>';
+                    : '<li class="list-group-item bg-dark text-light border-secondary">Nenhum item encontrado.</li>';
 
                 const mainRow = document.createElement('tr');
-                if (order.status === 'Pendente') {
+                mainRow.dataset.orderId = order.id;
+                if (isPending) {
                     mainRow.classList.add('order-pending');
                 }
-                mainRow.dataset.orderId = order.id;
 
                 mainRow.innerHTML = `
                     <td>
@@ -534,7 +548,7 @@
                         </button>
                     </td>
                     <td>
-                        <strong>${order.usuario?.nome_completo || 'Cliente Excluído'}</strong><br>
+                        <strong>${order.usuario?.nome_completo || 'Cliente Excluído'}</strong>${newBadgeHtml}<br>
                         <small class="text-muted">ID do Pedido: ${order.id}</small>
                     </td>
                     <td class="text-end">${parseFloat(order.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
@@ -568,22 +582,22 @@
                                     <div class="col-md-4">
                                         <h5><i class="bi bi-geo-alt-fill me-2"></i>Endereço de Entrega</h5>
                                         <p class="mb-1"><strong>Endereço:</strong> ${order.endereco || ''}, ${order.numero || ''}</p>
-                                        <p class="mb-1"><strong>Complemento:</strong> ${order.complemento || 'Nenhum'}</p>
-                                        <p class="mb-1"><strong>Cidade/UF:</strong> ${order.cidade || ''} - ${order.uf || ''}</p>
-                                        <p class="mb-1"><strong>Bairro:</strong> ${order.bairro || ''}</p>
+                                        <p class="mb-1"><strong>Bairro/Cidade:</strong> ${order.bairro || ''} - ${order.cidade || ''}/${order.uf || ''}</p>
                                         <p class="mb-1"><strong>CEP:</strong> ${order.cep || ''}</p>
-                                        <p class="mb-1"><strong>Número:</strong> ${order.numero || ''}</p>
                                     </div>
                                     <div class="col-md-4">
                                         <h5><i class="bi bi-cart3 me-2"></i>Itens do Pedido</h5>
                                         <ul class="list-group list-group-flush">${itemsHtml}</ul>
                                     </div>
                                 </div>
+                                <div class="border-top border-secondary mt-3 pt-3">
+                                    ${adminActionHtml}
+                                </div>
                             </div>
                         </div>
                     </td>
                 `;
-                
+
                 tableBody.appendChild(mainRow);
                 tableBody.appendChild(detailsRow);
             }
@@ -629,11 +643,14 @@
         }
 
         async function updateOrderStatus(orderId, newStatus, customerEmail, reason = null) {
-            const updateData = { status: newStatus };
+            const updateData = { 
+                status: newStatus,
+                acao_admin_nome: currentAdminName,         // <-- ADICIONE ESTA LINHA
+                acao_admin_data: new Date().toISOString()  // <-- ADICIONE ESTA LINHA
+            };
             if (reason) updateData.motivo_recusa = reason;
 
-            const { error } = await supabase.from('pedidos').update(updateData).eq('id', orderId);
-            
+            const { error } = await supabase.from('pedidos').update(updateData).eq('id', orderId);            
             if (error) { 
                 alert(`Erro ao atualizar pedido: ${error.message}`);
                 return;
@@ -1145,6 +1162,229 @@
             container.innerHTML = html;
             updateAllPresenceIndicators();
         }
+
+        // SUBSTITUA A FUNÇÃO renderOrders POR ESTA
+        async function renderOrders(container) {
+            container.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"></div></div>`;
+
+            const { data, error } = await supabase.from('pedidos')
+                .select(`*, usuario:usuarios(nome_completo, email, telefone)`)
+                .order('criado_em', { ascending: false });
+
+            if (error) {
+                container.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                return;
+            }
+            allOrders = data;
+
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Pedidos da Loja</h2>
+                    <input type="search" id="order-search-input" class="form-control" style="max-width: 400px;" placeholder="Buscar por Cliente, Email ou ID..." autocomplete="off">
+                </div>
+                <ul class="nav nav-pills mb-3" id="order-filter-pills">
+                    <li class="nav-item"><button class="nav-link active" data-filter="ativos">Ativos</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="entregues">Entregues</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="devolucoes">Devoluções</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="recusados">Recusados</button></li>
+                </ul>
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover fixed-table-layout">
+                        <thead><tr><th style="width: 5%;"></th><th>Cliente</th><th class="text-end">Valor Total</th><th class="text-center">Data</th><th class="text-center">Status</th><th class="text-center">Ações</th></tr></thead>
+                        <tbody id="orders-table-body"></tbody>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('order-search-input').addEventListener('input', handleOrderFilter);
+            container.querySelectorAll('#order-filter-pills .nav-link').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    container.querySelector('#order-filter-pills .nav-link.active')?.classList.remove('active');
+                    e.target.classList.add('active');
+                    handleOrderFilter();
+                });
+            });
+
+            handleOrderFilter(); // Renderiza a tabela com o filtro inicial
+        }
+
+        // SUBSTITUA A FUNÇÃO handleOrderFilter POR ESTA
+        function handleOrderFilter() {
+            const activeFilter = document.querySelector('#order-filter-pills .nav-link.active').dataset.filter;
+            const searchTerm = document.getElementById('order-search-input').value.trim().toLowerCase();
+
+            let filtered = allOrders;
+
+            // 1. Filtra por status de acordo com a nova lógica
+            if (activeFilter === 'ativos') {
+                filtered = allOrders.filter(o => ['Pendente', 'Aceito', 'Enviado'].includes(o.status));
+            } else if (activeFilter === 'entregues') {
+                filtered = allOrders.filter(o => o.status === 'Entregue');
+            } else if (activeFilter === 'devolucoes') {
+                filtered = allOrders.filter(o => ['Devolução', 'Devolução Aprovada', 'Devolução Recusada'].includes(o.status));
+            } else if (activeFilter === 'recusados') {
+                filtered = allOrders.filter(o => ['Recusado'].includes(o.status));
+            }
+
+            // 2. Filtra pelo termo de busca (lógica mantida)
+            if (searchTerm) {
+                filtered = filtered.filter(order => {
+                    const clientName = order.usuario?.nome_completo?.toLowerCase() || '';
+                    const clientEmail = order.usuario?.email?.toLowerCase() || '';
+                    const orderId = String(order.id);
+
+                    if (searchTerm.startsWith('id ')) {
+                        const idToSearch = searchTerm.substring(3).trim();
+                        return idToSearch ? orderId === idToSearch : false;
+                    } else {
+                        return clientName.includes(searchTerm) || clientEmail.includes(searchTerm);
+                    }
+                });
+            }
+
+            populateOrdersTable(filtered);
+        }
+
+        // SUBSTITUA A FUNÇÃO renderReturnsDashboard POR ESTA
+        async function renderReturnsDashboard(container) {
+            // Busca TODAS as solicitações relevantes, não apenas as pendentes
+            const { data, error } = await supabase
+                .from('pedidos')
+                .select(`*, usuario:usuarios(nome_completo, email)`)
+                .in('status', ['Cancelamento Solicitado', 'Devolução Solicitada', 'Cancelado', 'Devolução Aprovada', 'Devolução Recusada', 'Recusado'])
+                .order('acao_admin_data', { ascending: false, nullsFirst: true }) // Mostra pendentes primeiro
+                .order('criado_em', { ascending: false });
+
+            if (error) {
+                container.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                return;
+            };
+            allReturnRequests = data;
+
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Solicitações de Cancelamento e Devolução</h2>
+                </div>
+                <ul class="nav nav-pills mb-3" id="return-filter-pills">
+                    <li class="nav-item"><button class="nav-link active" data-filter="pendentes">Pendentes</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="aprovadas">Aprovadas</button></li>
+                    <li class="nav-item"><button class="nav-link" data-filter="recusadas">Recusadas</button></li>
+                </ul>
+                <div class="accordion" id="returnsAccordion"></div>
+            `;
+            
+            container.querySelectorAll('#return-filter-pills .nav-link').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    container.querySelector('#return-filter-pills .nav-link.active')?.classList.remove('active');
+                    e.target.classList.add('active');
+                    handleReturnFilter();
+                });
+            });
+
+            handleReturnFilter(); // Renderiza a lista com o filtro inicial
+        }
+
+
+    // SUBSTITUA A FUNÇÃO populateReturnsAccordion POR ESTA
+    function populateReturnsAccordion(requests) {
+        const accordionContainer = document.getElementById('returnsAccordion');
+        accordionContainer.innerHTML = '';
+
+        if (!requests || requests.length === 0) {
+            accordionContainer.innerHTML = `<p class="text-muted text-center mt-4">Nenhuma solicitação encontrada para este filtro.</p>`;
+            return;
+        }
+
+        requests.forEach(request => {
+            const isCancellation = ['Cancelamento Solicitado', 'Cancelado'].includes(request.status);
+            const requestTypeLabel = isCancellation ? 'Cancelamento' : 'Devolução';
+            
+            let badgeColor = 'bg-secondary';
+            if (request.status.includes('Solicitado')) badgeColor = 'bg-warning text-dark';
+            if (request.status.includes('Aprovada') || request.status.includes('Cancelado')) badgeColor = 'bg-success';
+            if (request.status.includes('Recusada')) badgeColor = 'bg-danger';
+
+            const createdDate = new Date(request.criado_em).toLocaleString('pt-BR');
+            const isPending = ['Cancelamento Solicitado', 'Devolução Solicitada'].includes(request.status);
+
+            let actionHtml = '';
+            let detailsHtml = '';
+
+            if (isPending) {
+                actionHtml = `
+                    <div class="mt-3">
+                        <button class="btn btn-success approve-request-btn" data-request-id="${request.id}" data-type="${requestTypeLabel.toLowerCase()}">Aprovar ${requestTypeLabel}</button>
+                        <button class="btn btn-danger refuse-request-btn" data-request-id="${request.id}" data-type="${requestTypeLabel.toLowerCase()}">Recusar ${requestTypeLabel}</button>
+                    </div>`;
+            } else {
+                const actionDate = request.acao_admin_data ? new Date(request.acao_admin_data).toLocaleString('pt-BR') : 'Não disponível';
+                detailsHtml = `
+                    <hr class="my-3">
+                    <p class="mb-1"><small><strong>Ação tomada por:</strong> ${request.acao_admin_nome || 'N/A'}</small></p>
+                    <p class="mb-1"><small><strong>Data da Ação:</strong> ${actionDate}</small></p>
+                `;
+                if(request.motivo_recusa) {
+                    detailsHtml += `<p class="mb-0 text-danger"><small><strong>Motivo:</strong> ${request.motivo_recusa}</small></p>`;
+                }
+            }
+
+            const item = document.createElement('div');
+            item.className = 'accordion-item bg-dark text-light border-secondary';
+            item.innerHTML = `
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-return-${request.id}">
+                        <span class="badge ${badgeColor} me-3">${request.status}</span>
+                        <span class="fw-bold me-2">Pedido #${request.id}</span> - ${request.usuario?.nome_completo || 'Cliente'}
+                        <span class="ms-auto text-muted small">${createdDate}</span>
+                    </button>
+                </h2>
+                <div id="collapse-return-${request.id}" class="accordion-collapse collapse" data-bs-parent="#returnsAccordion">
+                    <div class="accordion-body border-top border-secondary">
+                        <p><strong>Cliente:</strong> ${request.usuario?.nome_completo}</p>
+                        <p><strong>Email:</strong> ${request.usuario?.email}</p>
+                        <p><strong>Valor do Pedido:</strong> ${parseFloat(request.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        ${actionHtml}
+                        ${detailsHtml}
+                    </div>
+                </div>
+            `;
+            accordionContainer.appendChild(item);
+        });
+    }
+
+        async function handleRequestAction(requestId, type, approved, reason = null) {
+            let newStatus = '';
+            if (approved) {
+                newStatus = type === 'cancelamento' ? 'Cancelado' : 'Devolução Aprovada';
+            } else {
+                newStatus = type === 'cancelamento' ? 'Recusado' : 'Devolução Recusada';
+            }
+
+            const updateData = {
+                status: newStatus,
+                motivo_recusa: reason, // Será null se não houver motivo
+                acao_admin_nome: currentAdminName,
+                acao_admin_data: new Date().toISOString()
+            };
+
+            const { error } = await supabase
+                .from('pedidos')
+                .update(updateData)
+                .eq('id', requestId);
+
+            if (error) {
+                alert(`Erro ao processar a solicitação: ${error.message}`);
+                return;
+            }
+
+            if (approved) {
+                // TODO: Integrar com API de pagamento para estorno.
+                // Ex: await processRefund(requestId);
+            }
+            
+            alert(`A solicitação de ${type} foi ${approved ? 'aprovada' : 'recusada'} com sucesso.`);
+            loadTabContent('v-pills-returns'); // Recarrega a aba
+        }
         
         const tabContent = document.getElementById('v-pills-tabContent');
         
@@ -1228,6 +1468,46 @@
                     renderClientInteractions(userId, interactionsContainer);
                 }
             }
+
+            const approveBtn = e.target.closest('.approve-request-btn');
+            if (approveBtn) {
+                const requestId = approveBtn.dataset.requestId;
+                const type = approveBtn.dataset.type;
+                if (confirm(`Tem certeza que deseja APROVAR a solicitação de ${type} para o pedido #${requestId}?`)) {
+                    await handleRequestAction(requestId, type, true);
+                }
+            }
+
+            const refuseBtn = e.target.closest('.refuse-request-btn');
+            if (refuseBtn) {
+                const refusalForm = document.getElementById('refusal-form');
+                refusalForm.reset(); // Limpa o formulário do modal
+                
+                // Configura o modal para a recusa da solicitação
+                document.getElementById('refusal-order-id').value = refuseBtn.dataset.requestId;
+                // Usamos o campo 'customer-email' para guardar o tipo ('cancelamento' ou 'devolução')
+                document.getElementById('refusal-customer-email').value = refuseBtn.dataset.type;
+                
+                document.querySelector('#refusalModal .modal-title').textContent = `Motivo da Recusa - ${refuseBtn.dataset.type}`;
+                document.querySelector('#refusalModal label').textContent = `Por favor, descreva o motivo para recusar esta solicitação de ${refuseBtn.dataset.type}:`;
+                
+                refusalModal.show();
+            }
+        });
+
+            confirmRefusalBtn.addEventListener('click', async () => {
+            const reason = document.getElementById('refusal-reason').value;
+            if (reason.trim() === '') {
+                alert('O motivo da recusa é obrigatório.');
+                return;
+            }
+            
+            const requestId = document.getElementById('refusal-order-id').value;
+            const requestType = document.getElementById('refusal-customer-email').value;
+
+            await handleRequestAction(requestId, requestType, false, reason);
+            
+            refusalModal.hide();
         });
 
         async function renderClientOrders(userId, container) {
@@ -1340,16 +1620,26 @@
             }
         });
         
-        confirmRefusalBtn.addEventListener('click', () => {
+        // CÓDIGO CORRIGIDO
+        confirmRefusalBtn.addEventListener('click', async () => {
             const reason = document.getElementById('refusal-reason').value;
             if (reason.trim() === '') {
                 alert('O motivo da recusa é obrigatório.');
                 return;
             }
-            const orderId = document.getElementById('refusal-order-id').value;
-            const customerEmail = document.getElementById('refusal-customer-email').value;
-            
-            updateOrderStatus(orderId, 'Recusado', customerEmail, reason);
+
+            const requestId = document.getElementById('refusal-order-id').value;
+            const requestType = document.getElementById('refusal-customer-email').value;
+
+            // Esta lógica agora diferencia entre recusar um pedido novo e uma solicitação de cancelamento/devolução
+            if (requestType === 'cancelamento' || requestType === 'devolução') {
+                await handleRequestAction(requestId, requestType, false, reason);
+            } else {
+                // Mantém a lógica antiga para recusar um pedido que nunca foi aceito
+                const customerEmail = requestType; 
+                await updateOrderStatus(requestId, 'Recusado', customerEmail, reason);
+            }
+
             refusalModal.hide();
             document.getElementById('refusal-form').reset();
         });

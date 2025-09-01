@@ -16,6 +16,9 @@
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
+        .action-buttons .btn {
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -74,6 +77,56 @@
         </div>
     </main>
 
+    <div class="modal fade" id="requestModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestModalTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="requestModalBody">
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" id="continueRequestBtn">Estou ciente e quero continuar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="shippingInstructionsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="shippingInstructionsModalTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="shippingInstructionsModalBody">
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirmRequestBtn">Confirmar Solicitação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+     <div class="modal fade" id="viewShippingInfoModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Instruções de Envio para Devolução</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="viewShippingInfoBody">
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer-optimized mt-auto">
         <div class="container">
             <div class="row">
@@ -118,6 +171,14 @@
         const listaInteracoesContainer = document.getElementById("lista-interacoes");
         const spinner = `<div class="text-center p-4"><div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div></div>`;
 
+        // Modais
+        const requestModal = new bootstrap.Modal(document.getElementById('requestModal'));
+        const shippingInstructionsModal = new bootstrap.Modal(document.getElementById('shippingInstructionsModal'));
+        const viewShippingInfoModal = new bootstrap.Modal(document.getElementById('viewShippingInfoModal'));
+
+        let currentPedidoId = null;
+        let currentRequestType = ''; // 'cancelar' ou 'devolver'
+
         function criarCardPedido(pedido, reviewedProductIds) {
             const dataFormatada = new Date(pedido.criado_em).toLocaleDateString('pt-BR');
             const valorTotal = parseFloat(pedido.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -125,17 +186,32 @@
             const statusMap = {
                 'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' }, 'Aceito': { bg: 'bg-info text-dark', text: 'Aceito' },
                 'Enviado': { bg: 'bg-primary', text: 'Enviado' }, 'Entregue': { bg: 'bg-success', text: 'Entregue' },
-                'Recusado': { bg: 'bg-danger', text: 'Recusado' }, 'Devolução': { bg: 'bg-secondary', text: 'Devolução' }
+                'Recusado': { bg: 'bg-danger', text: 'Recusado' }, 'Devolução': { bg: 'bg-secondary', text: 'Devolução' },
+                'Cancelamento Solicitado': { bg: 'bg-warning text-dark', text: 'Cancelamento Solicitado' },
+                'Cancelado': { bg: 'bg-danger', text: 'Cancelado' },
+                'Devolução Solicitada': { bg: 'bg-warning text-dark', text: 'Devolução Solicitada' },
+                'Devolução Aprovada': { bg: 'bg-success', text: 'Devolução Aprovada' },
+                'Devolução Recusada': { bg: 'bg-danger', text: 'Devolução Recusada' },
             };
             const statusInfo = statusMap[pedido.status] || { bg: 'bg-secondary', text: pedido.status };
+
+            // Lógica dos botões de ação
+            let acoesPedidoHtml = '';
+            const statusesCancelaveis = ['Pendente', 'Aceito'];
+
+            if (statusesCancelaveis.includes(pedido.status)) {
+                acoesPedidoHtml = `<button class="btn btn-outline-danger btn-sm cancel-request-btn" data-pedido-id="${pedido.id}">Cancelar Compra</button>`;
+            } else if (pedido.status === 'Entregue') {
+                acoesPedidoHtml = `<button class="btn btn-outline-warning btn-sm return-request-btn" data-pedido-id="${pedido.id}">Devolver Pedido</button>`;
+            } else if (pedido.status === 'Devolução Aprovada') {
+                acoesPedidoHtml = `<button class="btn btn-info btn-sm view-shipping-info-btn" data-pedido-id="${pedido.id}">Informações de Envio</button>`;
+            }
 
             const itensHtml = pedido.itens_pedido.map(item => {
                 const produto = item.produtos;
                 if (!produto) return `<li>Item indisponível</li>`;
                 
-                let acaoHtml = ''; // Por padrão, não mostra nenhuma ação
-                
-                // ALTERADO: Adiciona a verificação para mostrar o botão/status somente se o pedido foi "Entregue"
+                let acaoHtml = '';
                 if (pedido.status === 'Entregue') {
                     const jaAvaliado = reviewedProductIds.has(produto.id);
                     if (jaAvaliado) {
@@ -152,37 +228,37 @@
                     </li>
                 `;
             }).join('');
-
+            
             let motivoRecusaHtml = '';
-            if (pedido.status === 'Recusado' && pedido.motivo_recusa) {
+            const motivosVisiveis = ['Recusado', 'Devolução Recusada', 'Cancelado'];
+            if (motivosVisiveis.includes(pedido.status) && pedido.motivo_recusa) {
                 motivoRecusaHtml = `
                 <div class="card-footer bg-transparent border-danger-subtle">
-                    <p class="mb-0 text-danger"><i class="bi bi-x-circle-fill me-2"></i><strong>Motivo da Recusa:</strong> ${pedido.motivo_recusa}</p>
-                </div>
-                `;
+                    <p class="mb-0 text-danger"><i class="bi bi-x-circle-fill me-2"></i><strong>Motivo da Recusa/Cancelamento:</strong> ${pedido.motivo_recusa}</p>
+                </div>`;
             }
 
             return `
                 <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                         <strong>Pedido #${pedido.id}</strong>
                         <span class="badge ${statusInfo.bg} status-badge">${statusInfo.text}</span>
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-8">
+                            <div class="col-md-7">
                                 <h6 class="card-subtitle mb-2 text-muted">Itens:</h6>
                                 <ul class="list-unstyled" style="font-size: 0.9em;">${itensHtml}</ul>
                             </div>
-                            <div class="col-md-4 text-md-end">
+                            <div class="col-md-5 text-md-end">
                                 <p class="mb-1"><strong>Data:</strong> ${dataFormatada}</p>
-                                <p class="mb-0"><strong>Total:</strong> ${valorTotal}</p>
+                                <p class="mb-1"><strong>Total:</strong> ${valorTotal}</p>
+                                <div class="mt-2 action-buttons">${acoesPedidoHtml}</div>
                             </div>
                         </div>
                     </div>
                     ${motivoRecusaHtml}
-                </div>
-            `;
+                </div>`;
         }
         
         function criarCardInteracao(interacao) {
@@ -272,6 +348,174 @@
                  listaInteracoesContainer.innerHTML = `<div class="alert alert-danger">Erro ao carregar interações: ${error.message}</div>`;
             }
         }
+        
+        function showRequestModal(type, pedidoId) {
+            currentPedidoId = pedidoId;
+            currentRequestType = type;
+
+            const modalTitle = document.getElementById('requestModalTitle');
+            const modalBody = document.getElementById('requestModalBody');
+
+            if (type === 'cancelar') {
+                modalTitle.textContent = 'Solicitar Cancelamento do Pedido #' + pedidoId;
+                modalBody.innerHTML = `
+                    <h5>Termos de Cancelamento:</h5>
+                    <p>Ao continuar, você solicitará o cancelamento da sua compra. Nossa equipe irá analisar o pedido.</p>
+                    <ul>
+                        <li>Se o pedido ainda não foi enviado, o cancelamento costuma ser aprovado rapidamente e o estorno será processado após a análise da nossa equipe.</li>
+                        <li>Se o pedido já foi enviado, será necessário recusar a entrega ou seguir as instruções de devolução que enviaremos.</li>
+                        <li>O estorno do valor será realizado no mesmo método de pagamento utilizado na compra, após a confirmação do cancelamento pela nossa equipe.</li>
+                    </ul>
+                    <p class="fw-bold">Você confirma que leu e concorda com os termos para prosseguir com o cancelamento?</p>
+                `;
+            } else { // Devolver
+                modalTitle.textContent = 'Solicitar Devolução do Pedido #' + pedidoId;
+                modalBody.innerHTML = `
+                    <h5>Política de Devolução por Arrependimento:</h5>
+                    <p>De acordo com o Código de Defesa do Consumidor, você tem o direito de se arrepender da compra em até <strong>7 (sete) dias corridos</strong>, a contar da data de recebimento do produto.</p>
+                    <h6>Condições para Devolução:</h6>
+                    <ul>
+                        <li>O produto deve ser devolvido na embalagem original, com todos os manuais, acessórios e sem indícios de uso.</li>
+                        <li><strong>Não cobrimos danos causados por mau uso</strong>, como quedas, arranhões, instalação incorreta, contato com líquidos ou selos de garantia rompidos.</li>
+                        <li>Após o recebimento do produto devolvido em nosso centro, nossa equipe técnica fará uma verificação para garantir que as condições foram atendidas.</li>
+                        <li>A verificação pode levar até 5 dias úteis.</li>
+                        <li>Se tudo estiver em conformidade, o estorno do valor será processado.</li>
+                    </ul>
+                     <p class="fw-bold">Você confirma que leu e concorda com os termos para prosseguir com a devolução?</p>
+                `;
+            }
+            requestModal.show();
+        }
+
+        function showShippingInstructionsModal() {
+            const modalTitle = document.getElementById('shippingInstructionsModalTitle');
+            const modalBody = document.getElementById('shippingInstructionsModalBody');
+            
+            const titleText = currentRequestType === 'cancelar' ? 'Instruções para Cancelamento' : 'Instruções para Devolução';
+            const actionText = currentRequestType === 'cancelar' ? 'cancelamento' : 'devolução';
+
+            modalTitle.textContent = titleText;
+            modalBody.innerHTML = `
+                <h5>Endereço para Envio:</h5>
+                <p>
+                    <strong>Destinatário:</strong> Byte Bros.TI - Devoluções<br>
+                    <strong>Endereço:</strong> SEU ENDEREÇO COMPLETO AQUI, NÚMERO, BAIRRO<br>
+                    <strong>Cidade/UF:</strong> SUA CIDADE - SEU ESTADO<br>
+                    <strong>CEP:</strong> SEU-CEP-AQUI
+                </p>
+                <hr>
+                <h5>Como Embalar o Produto:</h5>
+                <ul>
+                    <li>Utilize la embalagem original do produto.</li>
+                    <li>Acondicione o item em uma caixa de papelão resistente para protegê-lo durante o transporte.</li>
+                    <li>Certifique-se de que todos os acessórios, manuais e a nota fiscal (DANFE) estejam dentro da caixa.</li>
+                    <li>Lacre bem a caixa com fita adesiva.</li>
+                </ul>
+                <p class="text-danger fw-bold mt-3">Atenção: O não cumprimento destas instruções pode impactar a aprovação da sua solicitação de ${actionText}.</p>
+                <p>Ao clicar em "Confirmar Solicitação", você afirma que está ciente de como proceder e que nossa equipe receberá seu pedido para análise.</p>
+            `;
+            shippingInstructionsModal.show();
+        }
+        
+        document.getElementById('continueRequestBtn').addEventListener('click', async () => {
+            // Se for uma devolução, mostra o próximo passo (instruções de envio)
+            if (currentRequestType === 'devolver') {
+                requestModal.hide();
+                showShippingInstructionsModal();
+                return;
+            }
+
+            // Se for um cancelamento, finaliza a solicitação aqui mesmo
+            if (currentRequestType === 'cancelar') {
+                const btn = document.getElementById('continueRequestBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Solicitando...';
+
+                try {
+                    const { error } = await supabase
+                        .from('pedidos')
+                        .update({ status: 'Cancelamento Solicitado' })
+                        .eq('id', currentPedidoId);
+
+                    if (error) throw error;
+
+                    alert('Sua solicitação de cancelamento foi enviada com sucesso!');
+                    requestModal.hide();
+                    await carregarDados(); // Recarrega a lista de pedidos
+
+                } catch (error) {
+                    alert(`Erro ao enviar solicitação: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Estou ciente e quero continuar';
+                }
+            }
+        });
+
+        document.getElementById('confirmRequestBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('confirmRequestBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando...';
+
+            const newStatus = currentRequestType === 'cancelar' ? 'Cancelamento Solicitado' : 'Devolução Solicitada';
+
+            try {
+                const { error } = await supabase
+                    .from('pedidos')
+                    .update({ status: newStatus })
+                    .eq('id', currentPedidoId);
+                
+                if (error) throw error;
+
+                alert('Sua solicitação foi enviada com sucesso! Acompanhe o status por esta página.');
+                shippingInstructionsModal.hide();
+                carregarDados();
+
+            } catch (error) {
+                alert(`Erro ao enviar solicitação: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Confirmar Solicitação';
+            }
+        });
+
+        function showShippingInfoForApprovedReturn() {
+            const modalBody = document.getElementById('viewShippingInfoBody');
+            modalBody.innerHTML = `
+                <p>Sua devolução foi aprovada! Por favor, envie o produto para o endereço abaixo seguindo as instruções:</p>
+                <h5>Endereço para Envio:</h5>
+                <p>
+                    <strong>Destinatário:</strong> Byte Bros.TI - Devoluções<br>
+                    <strong>Endereço:</strong> SEU ENDEREÇO COMPLETO AQUI, NÚMERO, BAIRRO<br>
+                    <strong>Cidade/UF:</strong> SUA CIDADE - SEU ESTADO<br>
+                    <strong>CEP:</strong> SEU-CEP-AQUI
+                </p>
+                <hr>
+                <h5>Instruções de Embalagem:</h5>
+                <ul>
+                    <li>Utilize a embalagem original do produto.</li>
+                    <li>Acondicione o item em uma caixa de papelão resistente.</li>
+                    <li>Inclua todos os acessórios, manuais e a nota fiscal.</li>
+                    <li>Lacre bem a caixa.</li>
+                </ul>
+                <p class="mt-3">Após o envio, guarde o comprovante dos Correios. O estorno será processado assim que recebermos e conferirmos o produto.</p>
+            `;
+            viewShippingInfoModal.show();
+        }
+
+        listaPedidosContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('cancel-request-btn')) {
+                const pedidoId = e.target.dataset.pedidoId;
+                showRequestModal('cancelar', pedidoId);
+            }
+            if (e.target.classList.contains('return-request-btn')) {
+                const pedidoId = e.target.dataset.pedidoId;
+                showRequestModal('devolver', pedidoId);
+            }
+            if (e.target.classList.contains('view-shipping-info-btn')) {
+                showShippingInfoForApprovedReturn();
+            }
+        });
         
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) {
