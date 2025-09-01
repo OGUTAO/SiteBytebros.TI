@@ -559,7 +559,6 @@
                             <option value="Aceito" ${order.status === 'Aceito' ? 'selected' : ''}>Aceito</option>
                             <option value="Enviado" ${order.status === 'Enviado' ? 'selected' : ''}>Enviado</option>
                             <option value="Entregue" ${order.status === 'Entregue' ? 'selected' : ''}>Entregue</option>
-                            <option value="Devolução" ${order.status === 'Devolução' ? 'selected' : ''}>Devolução</option>
                             <option value="Recusado" ${order.status === 'Recusado' ? 'selected' : ''}>Recusado</option>
                         </select>
                     </td>
@@ -1185,7 +1184,6 @@
                 <ul class="nav nav-pills mb-3" id="order-filter-pills">
                     <li class="nav-item"><button class="nav-link active" data-filter="ativos">Ativos</button></li>
                     <li class="nav-item"><button class="nav-link" data-filter="entregues">Entregues</button></li>
-                    <li class="nav-item"><button class="nav-link" data-filter="devolucoes">Devoluções</button></li>
                     <li class="nav-item"><button class="nav-link" data-filter="recusados">Recusados</button></li>
                 </ul>
                 <div class="table-responsive">
@@ -1285,73 +1283,91 @@
         }
 
 
-    // SUBSTITUA A FUNÇÃO populateReturnsAccordion POR ESTA
-    function populateReturnsAccordion(requests) {
-        const accordionContainer = document.getElementById('returnsAccordion');
-        accordionContainer.innerHTML = '';
+    // SUBSTITUA A FUNÇÃO populateReturnsAccordion INTEIRA POR ESTA
+function populateReturnsAccordion(requests) {
+    const accordionContainer = document.getElementById('returnsAccordion');
+    accordionContainer.innerHTML = '';
 
-        if (!requests || requests.length === 0) {
-            accordionContainer.innerHTML = `<p class="text-muted text-center mt-4">Nenhuma solicitação encontrada para este filtro.</p>`;
-            return;
-        }
-
-        requests.forEach(request => {
-            const isCancellation = ['Cancelamento Solicitado', 'Cancelado'].includes(request.status);
-            const requestTypeLabel = isCancellation ? 'Cancelamento' : 'Devolução';
-            
-            let badgeColor = 'bg-secondary';
-            if (request.status.includes('Solicitado')) badgeColor = 'bg-warning text-dark';
-            if (request.status.includes('Aprovada') || request.status.includes('Cancelado')) badgeColor = 'bg-success';
-            if (request.status.includes('Recusada')) badgeColor = 'bg-danger';
-
-            const createdDate = new Date(request.criado_em).toLocaleString('pt-BR');
-            const isPending = ['Cancelamento Solicitado', 'Devolução Solicitada'].includes(request.status);
-
-            let actionHtml = '';
-            let detailsHtml = '';
-
-            if (isPending) {
-                actionHtml = `
-                    <div class="mt-3">
-                        <button class="btn btn-success approve-request-btn" data-request-id="${request.id}" data-type="${requestTypeLabel.toLowerCase()}">Aprovar ${requestTypeLabel}</button>
-                        <button class="btn btn-danger refuse-request-btn" data-request-id="${request.id}" data-type="${requestTypeLabel.toLowerCase()}">Recusar ${requestTypeLabel}</button>
-                    </div>`;
-            } else {
-                const actionDate = request.acao_admin_data ? new Date(request.acao_admin_data).toLocaleString('pt-BR') : 'Não disponível';
-                detailsHtml = `
-                    <hr class="my-3">
-                    <p class="mb-1"><small><strong>Ação tomada por:</strong> ${request.acao_admin_nome || 'N/A'}</small></p>
-                    <p class="mb-1"><small><strong>Data da Ação:</strong> ${actionDate}</small></p>
-                `;
-                if(request.motivo_recusa) {
-                    detailsHtml += `<p class="mb-0 text-danger"><small><strong>Motivo:</strong> ${request.motivo_recusa}</small></p>`;
-                }
-            }
-
-            const item = document.createElement('div');
-            item.className = 'accordion-item bg-dark text-light border-secondary';
-            item.innerHTML = `
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-return-${request.id}">
-                        <span class="badge ${badgeColor} me-3">${request.status}</span>
-                        <span class="fw-bold me-2">Pedido #${request.id}</span> - ${request.usuario?.nome_completo || 'Cliente'}
-                        <span class="ms-auto text-muted small">${createdDate}</span>
-                    </button>
-                </h2>
-                <div id="collapse-return-${request.id}" class="accordion-collapse collapse" data-bs-parent="#returnsAccordion">
-                    <div class="accordion-body border-top border-secondary">
-                        <p><strong>Cliente:</strong> ${request.usuario?.nome_completo}</p>
-                        <p><strong>Email:</strong> ${request.usuario?.email}</p>
-                        <p><strong>Valor do Pedido:</strong> ${parseFloat(request.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                        ${actionHtml}
-                        ${detailsHtml}
-                    </div>
-                </div>
-            `;
-            accordionContainer.appendChild(item);
-        });
+    if (!requests || requests.length === 0) {
+        accordionContainer.innerHTML = `<p class="text-muted text-center mt-4">Nenhuma solicitação encontrada para este filtro.</p>`;
+        return;
     }
 
+    requests.forEach(request => {
+        const isCancellation = ['Cancelamento Solicitado', 'Cancelado'].includes(request.status);
+        const requestTypeLabel = isCancellation ? 'Cancelamento' : 'Devolução';
+        
+        // Lógica de cor do status (mantida)
+        let badgeColor = 'bg-secondary';
+        const status = request.status;
+        if (status === 'Cancelamento Solicitado' || status === 'Devolução Solicitada') {
+            badgeColor = 'bg-warning text-dark';
+        } else if (status === 'Cancelado' || status === 'Devolução Aprovada') {
+            badgeColor = 'bg-success';
+        } else if (status === 'Recusado' || status === 'Devolução Recusada') {
+            badgeColor = 'bg-danger';
+        }
+
+        const createdDate = new Date(request.criado_em).toLocaleString('pt-BR');
+        const isPending = ['Cancelamento Solicitado', 'Devolução Solicitada'].includes(request.status);
+
+        let actionHtml = '';
+        let detailsHtml = '';
+
+        if (isPending) {
+            actionHtml = `
+                <div class="mt-3">
+                    <button class="btn btn-success approve-request-btn" data-request-id="${request.id}" data-type="${requestTypeLabel.toLowerCase()}">Aprovar ${requestTypeLabel}</button>
+                    <button class="btn btn-danger refuse-request-btn" data-request-id="${request.id}" data-type="${requestTypeLabel.toLowerCase()}">Recusar ${requestTypeLabel}</button>
+                </div>`;
+        } else {
+            // --- INÍCIO DA NOVA LÓGICA ---
+            const actionDate = request.acao_admin_data ? new Date(request.acao_admin_data).toLocaleString('pt-BR') : 'Não disponível';
+            const isSuperAdmin = currentUserId === SUPER_ADMIN_USER_ID;
+
+            // Cria o botão de exclusão apenas se for Super Admin
+            const deleteButtonHtml = isSuperAdmin 
+                ? `<button class="btn btn-sm btn-outline-danger delete-order-btn mt-3" data-order-id="${request.id}" title="Excluir Pedido Permanentemente">
+                       <i class="bi bi-trash"></i> Excluir Registro Permanentemente
+                   </button>` 
+                : '';
+            // --- FIM DA NOVA LÓGICA ---
+
+            detailsHtml = `
+                <hr class="my-3">
+                <p class="mb-1"><small><strong>Ação tomada por:</strong> ${request.acao_admin_nome || 'N/A'}</small></p>
+                <p class="mb-1"><small><strong>Data da Ação:</strong> ${actionDate}</small></p>
+            `;
+            if(request.motivo_recusa) {
+                detailsHtml += `<p class="mb-0 text-danger"><small><strong>Motivo:</strong> ${request.motivo_recusa}</small></p>`;
+            }
+            // Adiciona o botão de exclusão ao final dos detalhes
+            detailsHtml += deleteButtonHtml;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'accordion-item bg-dark text-light border-secondary';
+        item.innerHTML = `
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-return-${request.id}">
+                    <span class="badge ${badgeColor} me-3">${request.status}</span>
+                    <span class="fw-bold me-2">Pedido #${request.id}</span> - ${request.usuario?.nome_completo || 'Cliente'}
+                    <span class="ms-auto text-muted small">${createdDate}</span>
+                </button>
+            </h2>
+            <div id="collapse-return-${request.id}" class="accordion-collapse collapse" data-bs-parent="#returnsAccordion">
+                <div class="accordion-body border-top border-secondary">
+                    <p><strong>Cliente:</strong> ${request.usuario?.nome_completo}</p>
+                    <p><strong>Email:</strong> ${request.usuario?.email}</p>
+                    <p><strong>Valor do Pedido:</strong> ${parseFloat(request.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                    ${actionHtml}
+                    ${detailsHtml}
+                </div>
+            </div>
+        `;
+        accordionContainer.appendChild(item);
+    });
+}
         async function handleRequestAction(requestId, type, approved, reason = null) {
             let newStatus = '';
             if (approved) {
@@ -1642,6 +1658,10 @@
 
             refusalModal.hide();
             document.getElementById('refusal-form').reset();
+        });
+        refusalModalEl.addEventListener('shown.bs.modal', () => {
+            // Assim que o modal estiver 100% visível, move o foco para o campo de texto.
+            document.getElementById('refusal-reason').focus();
         });
 
         checkAdminAccess();
