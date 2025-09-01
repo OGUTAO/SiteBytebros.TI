@@ -380,6 +380,9 @@
                     await supabase.auth.signOut();
                     loginError.textContent = "Acesso negado. Você não tem permissão de administrador.";
                     loginError.classList.remove('d-none');
+
+                    btn.disabled = false;
+                    btn.innerHTML = 'Entrar';
                 }
             }
         });
@@ -1351,7 +1354,7 @@
             document.getElementById('refusal-form').reset();
         });
 
-        checkAdminStatus();
+        checkAdminAccess();
 
     </script>
 </body>
