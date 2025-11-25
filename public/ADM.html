@@ -31,10 +31,9 @@
             }
 
             /* --- CORREÇÃO PARA O MENU DE ABAS --- */
-            /* 1. Limita a altura do container do menu */
             .sidebar-menu-container {
-                max-height: 250px; /* Altura máxima que o menu pode ter antes de rolar */
-                overflow-y: auto;  /* ATIVA A ROLAGEM VERTICAL */
+                max-height: 250px; 
+                overflow-y: auto;
                 border: 1px solid #495057;
                 border-radius: .5rem;
             }
@@ -45,38 +44,51 @@
             }
 
             .order-pending {
-                /* Adiciona uma borda amarela na lateral da linha para destacar */
                 border-left: 4px solid var(--bs-warning);
             }
-            /* Opcional: Adiciona um fundo sutil para a linha inteira */
             .order-pending > td {
                 background-color: rgba(255, 193, 7, 0.05);
             }
 
-            /* Mantém a correção para a aba "Equipe" */
             #v-pills-team .list-group-item {
                 flex-wrap: wrap;
                 gap: 10px;
             }
 
-            /* Mantém a correção para a aba "Interações" */
+            /* --- CORREÇÃO PARA INTERAÇÕES E DEVOLUÇÕES (Mobile) --- */
             .accordion-scroll-container {
                 overflow-x: auto;
             }
-            #v-pills-interactions .accordion {
-                min-width: 700px;
+            
+            /* Aplica a largura mínima para AMBAS as abas */
+            #v-pills-interactions .accordion,
+            #v-pills-returns .accordion {
+                min-width: 700px; /* Força a largura para aparecer a rolagem */
             }
-            #v-pills-interactions .accordion-item {
-                border-left: none; border-right: none; border-radius: 0 !important;
+
+            /* Corrige o problema do "tracinho" cortado */
+            #v-pills-interactions .accordion-item,
+            #v-pills-returns .accordion-item {
+                border-left: none; 
+                border-right: none; 
+                border-radius: 0 !important;
+                width: 100%; /* Garante que o item ocupe todo o espaço da min-width */
             }
-            #v-pills-interactions .accordion-item:first-of-type .accordion-button {
+
+            /* Ajustes visuais nos botões do acordeão mobile */
+            #v-pills-interactions .accordion-button,
+            #v-pills-returns .accordion-button {
+                white-space: nowrap; /* Mantém o texto em uma linha */
+            }
+
+            /* Remove bordas duplas no mobile */
+            #v-pills-interactions .accordion-item:first-of-type .accordion-button,
+            #v-pills-returns .accordion-item:first-of-type .accordion-button {
                 border-top: none;
             }
-            #v-pills-interactions .accordion-item:last-of-type .accordion-button.collapsed {
+            #v-pills-interactions .accordion-item:last-of-type .accordion-button.collapsed,
+            #v-pills-returns .accordion-item:last-of-type .accordion-button.collapsed {
                  border-bottom: none;
-            }
-            #v-pills-interactions .accordion-button {
-                white-space: nowrap;
             }
         }
     </style>
@@ -1243,14 +1255,13 @@
             populateOrdersTable(filtered);
         }
 
-        // SUBSTITUA A FUNÇÃO renderReturnsDashboard POR ESTA
         async function renderReturnsDashboard(container) {
-            // Busca TODAS as solicitações relevantes, não apenas as pendentes
+            // Busca TODAS as solicitações relevantes
             const { data, error } = await supabase
                 .from('pedidos')
                 .select(`*, usuario:usuarios(nome_completo, email)`)
                 .in('status', ['Cancelamento Solicitado', 'Devolução Solicitada', 'Cancelado', 'Devolução Aprovada', 'Devolução Recusada', 'Recusado'])
-                .order('acao_admin_data', { ascending: false, nullsFirst: true }) // Mostra pendentes primeiro
+                .order('acao_admin_data', { ascending: false, nullsFirst: true }) 
                 .order('criado_em', { ascending: false });
 
             if (error) {
@@ -1268,7 +1279,10 @@
                     <li class="nav-item"><button class="nav-link" data-filter="aprovadas">Aprovadas</button></li>
                     <li class="nav-item"><button class="nav-link" data-filter="recusadas">Recusadas</button></li>
                 </ul>
-                <div class="accordion" id="returnsAccordion"></div>
+                
+                <div class="table-responsive">
+                    <div class="accordion" id="returnsAccordion"></div>
+                </div>
             `;
             
             container.querySelectorAll('#return-filter-pills .nav-link').forEach(pill => {
@@ -1279,7 +1293,7 @@
                 });
             });
 
-            handleReturnFilter(); // Renderiza a lista com o filtro inicial
+            handleReturnFilter(); 
         }
 
 
