@@ -141,7 +141,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script type="module">
-        import { supabase } from './js/supabase-client.js';
+        import { supabase, getTeamEmails } from './js/supabase-client.js';
 
         const atendimentoForm = document.getElementById('atendimento-form');
         const themeToggle = document.getElementById('theme-toggle');
@@ -186,6 +186,22 @@
 
                 const { error } = await supabase.from('interacoes').insert([dadosInteracao]);
                 if (error) throw error;
+                
+                // --- NOTIFICAR ADMINS DA EQUIPE SELECIONADA ---
+                const adminEmails = await getTeamEmails(dadosInteracao.equipe_solicitada);
+                for (const email of adminEmails) {
+                    await supabase.functions.invoke('send-email', {
+                    body: {
+                        type: 'ADMIN_NOVO_SUPORTE',
+                        // targetTeam avisa pro servidor buscar os admins dessa equipe
+                        targetTeam: dadosInteracao.equipe_solicitada, 
+                        customerName: dadosInteracao.nome,
+                        messageContent: dadosInteracao.mensagem,
+                        serviceType: dadosInteracao.equipe_solicitada
+                    }
+                });
+            
+            }
 
                 alert('Mensagem enviada com sucesso! Em breve retornaremos o contato.');
                 atendimentoForm.reset();

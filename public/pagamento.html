@@ -84,8 +84,10 @@
     </footer>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script type="module">
-        import { supabase } from './js/supabase-client.js';
+        // 1. ADICIONADO: Importação da função getTeamEmails
+        import { supabase, getTeamEmails } from './js/supabase-client.js';
 
         const confirmarPagamentoBtn = document.getElementById('confirmar-pagamento-btn');
         let formaPagamentoSelecionada = 'Cartão de Crédito';
@@ -148,6 +150,7 @@
                     ...deliveryAddress 
                 };
 
+                // Insere o pedido
                 const { data: pedidoResult, error: pedidoError } = await supabase
                     .from('pedidos')
                     .insert(pedidoData)
@@ -156,6 +159,7 @@
 
                 if (pedidoError) throw pedidoError;
 
+                // Insere os itens
                 const itensDoPedido = cart.map(item => ({
                     pedido_id: pedidoResult.id,
                     produto_id: item.id,
@@ -168,16 +172,29 @@
 
                 await updateStock(cart);
                 
+                // --- BLOCO DE NOTIFICAÇÕES ATUALIZADO ---
                 try {
+                    // 1. Notifica o Cliente (Sua compra foi recebida)
                     await supabase.functions.invoke('send-email', {
                         body: { 
                             type: 'PEDIDO_PENDENTE', 
-                            to: session.user.email, 
+                            to: session.user.email, // 'to' manda direto para este e-mail
                             orderId: pedidoResult.id 
                         }
                     });
+
+                    // 2. Notifica a Equipe SHOP (Novo pedido na loja)
+                    await supabase.functions.invoke('send-email', {
+                        body: {
+                            type: 'ADMIN_NOVO_PEDIDO',
+                            targetTeam: 'ByteCore Shop', // 'targetTeam' busca os admins
+                            orderId: pedidoResult.id,
+                            customerName: session.user.user_metadata?.nome_completo || 'Cliente'
+                        }
+                    });
+
                 } catch (e) {
-                    console.warn("Aviso: Falha ao enviar e-mail de confirmação:", e.message);
+                    console.warn("Aviso: Falha ao enviar e-mail de notificação:", e.message);
                 }
                 
                 localStorage.removeItem('cart');

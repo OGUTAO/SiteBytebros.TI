@@ -60,28 +60,27 @@
                 overflow-x: auto;
             }
             
-            /* Aplica a largura mínima para AMBAS as abas */
+            /* AQUI ESTÁ A MUDANÇA MÁGICA */
             #v-pills-interactions .accordion,
             #v-pills-returns .accordion {
-                min-width: 700px; /* Força a largura para aparecer a rolagem */
+                min-width: 700px; /* Garante um tamanho mínimo */
+                width: max-content; /* OBRIGATÓRIO: Faz a caixa crescer até cobrir todo o texto longo */
             }
 
-            /* Corrige o problema do "tracinho" cortado */
+            /* Garante que o item e a borda acompanhem o tamanho total */
             #v-pills-interactions .accordion-item,
             #v-pills-returns .accordion-item {
                 border-left: none; 
                 border-right: none; 
                 border-radius: 0 !important;
-                width: 100%; /* Garante que o item ocupe todo o espaço da min-width */
+                width: 100%; 
             }
 
-            /* Ajustes visuais nos botões do acordeão mobile */
             #v-pills-interactions .accordion-button,
             #v-pills-returns .accordion-button {
-                white-space: nowrap; /* Mantém o texto em uma linha */
+                white-space: nowrap;
             }
 
-            /* Remove bordas duplas no mobile */
             #v-pills-interactions .accordion-item:first-of-type .accordion-button,
             #v-pills-returns .accordion-item:first-of-type .accordion-button {
                 border-top: none;
@@ -495,7 +494,8 @@
             } else if (activeFilter === 'aprovadas') {
                 filtered = allReturnRequests.filter(r => ['Cancelado', 'Devolução Aprovada'].includes(r.status));
             } else if (activeFilter === 'recusadas') {
-                filtered = allReturnRequests.filter(r => ['Devolução Recusada'].includes(r.status));
+                // CORREÇÃO AQUI: Adicionamos 'Recusado' na lista para incluir os cancelamentos negados
+                filtered = allReturnRequests.filter(r => ['Recusado', 'Devolução Recusada'].includes(r.status));
             }
 
             populateReturnsAccordion(filtered);
@@ -656,8 +656,8 @@
         async function updateOrderStatus(orderId, newStatus, customerEmail, reason = null) {
             const updateData = { 
                 status: newStatus,
-                acao_admin_nome: currentAdminName,         // <-- ADICIONE ESTA LINHA
-                acao_admin_data: new Date().toISOString()  // <-- ADICIONE ESTA LINHA
+                acao_admin_nome: currentAdminName,
+                acao_admin_data: new Date().toISOString()
             };
             if (reason) updateData.motivo_recusa = reason;
 
@@ -667,31 +667,32 @@
                 return;
             }
 
+            // Se for uma recusa de pedido NORMAL (ex: falta de estoque), enviamos APENAS este e-mail.
+            // A função handleRequestAction NÃO deve ser chamada aqui.
             try {
-                let emailType;
+                let emailType = null;
                 const emailPayload = { to: customerEmail, orderId };
-                let notificationMessage = 'Status do pedido atualizado com sucesso!';
 
-                if (newStatus === 'Aceito') {
-                    emailType = 'PEDIDO_ACEITO';
-                    notificationMessage = 'Pedido aceito! O cliente será notificado.';
-                } else if (newStatus === 'Recusado') {
-                    emailType = 'PEDIDO_RECUSADO';
-                    emailPayload.reason = reason;
-                    notificationMessage = 'Pedido recusado! O cliente será notificado.';
-                }
-
-                alert(notificationMessage);
+                if (newStatus === 'Aceito') emailType = 'PEDIDO_ACEITO';
+                else if (newStatus === 'Recusado') {
+                     emailType = 'PEDIDO_RECUSADO'; // E-mail de "Pedido da Loja Recusado"
+                     emailPayload.reason = reason;
+                } 
+                else if (newStatus === 'Enviado') emailType = 'PEDIDO_ENVIADO';
+                else if (newStatus === 'Entregue') emailType = 'PEDIDO_ENTREGUE';
 
                 if (emailType) {
                     await supabase.functions.invoke('send-email', { body: { type: emailType, ...emailPayload } });
+                    alert(`Status atualizado para ${newStatus} e cliente notificado.`);
+                } else {
+                    alert(`Status atualizado para ${newStatus}.`);
                 }
+
             } catch (e) { 
-                console.error("Erro ao invocar função de e-mail:", e);
-                alert("O status do pedido foi atualizado, mas houve uma falha ao notificar o cliente.");
+                console.error("Erro ao enviar e-mail:", e);
+                alert("Status salvo, mas houve falha no envio do e-mail.");
             }
 
-            // AQUI ESTÁ A CHAVE: Força o recarregamento completo do conteúdo da aba de pedidos.
             await loadTabContent('v-pills-orders');
         }
         
@@ -1261,7 +1262,8 @@
                 .from('pedidos')
                 .select(`*, usuario:usuarios(nome_completo, email)`)
                 .in('status', ['Cancelamento Solicitado', 'Devolução Solicitada', 'Cancelado', 'Devolução Aprovada', 'Devolução Recusada', 'Recusado'])
-                .order('acao_admin_data', { ascending: false, nullsFirst: true }) 
+                // CORREÇÃO AQUI: Removemos a ordenação por ação do admin
+                // Agora ordena puramente pela data de criação (mais novo no topo)
                 .order('criado_em', { ascending: false });
 
             if (error) {
@@ -1293,7 +1295,7 @@
                 });
             });
 
-            handleReturnFilter(); 
+            handleReturnFilter(); // Renderiza a lista com o filtro inicial
         }
 
 
@@ -1387,41 +1389,111 @@ function populateReturnsAccordion(requests) {
             if (approved) {
                 newStatus = type === 'cancelamento' ? 'Cancelado' : 'Devolução Aprovada';
             } else {
+                // Define o status para recusa da solicitação
                 newStatus = type === 'cancelamento' ? 'Recusado' : 'Devolução Recusada';
             }
 
             const updateData = {
                 status: newStatus,
-                motivo_recusa: reason, // Será null se não houver motivo
+                motivo_recusa: reason,
                 acao_admin_nome: currentAdminName,
                 acao_admin_data: new Date().toISOString()
             };
 
-            const { error } = await supabase
-                .from('pedidos')
-                .update(updateData)
-                .eq('id', requestId);
+            const { error } = await supabase.from('pedidos').update(updateData).eq('id', requestId);
 
             if (error) {
-                alert(`Erro ao processar a solicitação: ${error.message}`);
+                alert(`Erro ao processar solicitação: ${error.message}`);
                 return;
             }
 
-            if (approved) {
-                // TODO: Integrar com API de pagamento para estorno.
-                // Ex: await processRefund(requestId);
+            // Aqui enviamos APENAS o e-mail referente à SOLICITAÇÃO (Cancelamento ou Devolução)
+            try {
+                const { data: pedido } = await supabase.from('pedidos').select('usuario:usuarios(email)').eq('id', requestId).single();
+                const customerEmail = pedido?.usuario?.email;
+
+                if (customerEmail) {
+                    const emailType = approved ? 'SOLICITACAO_APROVADA' : 'SOLICITACAO_RECUSADA';
+                    const serviceLabel = type === 'cancelamento' ? 'Cancelamento' : 'Devolução';
+                    
+                    await supabase.functions.invoke('send-email', { 
+                        body: { 
+                            type: emailType, 
+                            to: customerEmail, 
+                            orderId: requestId,
+                            serviceType: serviceLabel,
+                            reason: reason 
+                        } 
+                    });
+                }
+            } catch(e) { 
+                console.error('Erro no email:', e); 
             }
-            
-            alert(`A solicitação de ${type} foi ${approved ? 'aprovada' : 'recusada'} com sucesso.`);
-            loadTabContent('v-pills-returns'); // Recarrega a aba
+
+            alert(`Solicitação de ${type} ${approved ? 'aprovada' : 'recusada'} com sucesso.`);
+            loadTabContent('v-pills-returns');
         }
+
+        const newConfirmRefusalBtn = confirmRefusalBtn.cloneNode(true);
+        confirmRefusalBtn.parentNode.replaceChild(newConfirmRefusalBtn, confirmRefusalBtn);
+
+            newConfirmRefusalBtn.addEventListener('click', async () => {
+                const reason = document.getElementById('refusal-reason').value;
+                if (reason.trim() === '') {
+                    alert('O motivo da recusa é obrigatório.');
+                    return;
+                }
+
+                const requestId = document.getElementById('refusal-order-id').value;
+                // Este campo 'refusal-customer-email' guarda o E-MAIL (se for pedido normal) ou o TIPO (cancelamento/devolução)
+                const requestTypeOrEmail = document.getElementById('refusal-customer-email').value;
+
+                // Lógica de separação:
+                // Se o valor for exatamente 'cancelamento' ou 'devolução', é uma SOLICITAÇÃO.
+                // Caso contrário, assumimos que é o E-MAIL do cliente para um pedido NORMAL da loja.
+                if (requestTypeOrEmail === 'cancelamento' || requestTypeOrEmail === 'devolução') {
+                    // Fluxo: Recusar Solicitação (Cliente pediu cancelamento e Admin disse NÃO)
+                    await handleRequestAction(requestId, requestTypeOrEmail, false, reason);
+                } else {
+                    // Fluxo: Recusar Pedido Novo (Loja sem estoque, pagamento falhou, etc)
+                    const customerEmail = requestTypeOrEmail; 
+                    await updateOrderStatus(requestId, 'Recusado', customerEmail, reason);
+                }
+
+                refusalModal.hide();
+                document.getElementById('refusal-form').reset();
+            });
         
         const tabContent = document.getElementById('v-pills-tabContent');
         
         tabContent.addEventListener('click', async (e) => {
+            
+            // --- CORREÇÃO 1: EXCLUIR PEDIDO E ATUALIZAR A ABA CERTA ---
             const deleteOrderBtn = e.target.closest('.delete-order-btn');
             if (deleteOrderBtn) {
-                await deleteOrder(deleteOrderBtn.dataset.orderId);
+                const orderId = deleteOrderBtn.dataset.orderId;
+                if (confirm('ATENÇÃO: Ação irreversível!\n\nDeseja excluir este registro permanentemente?')) {
+                    try {
+                        // Deleta itens primeiro (se houver constraint)
+                        await supabase.from('itens_pedido').delete().eq('pedido_id', orderId);
+                        // Deleta o pedido
+                        const { error } = await supabase.from('pedidos').delete().eq('id', orderId);
+                        
+                        if (error) throw error;
+
+                        alert('Registro excluído com sucesso.');
+
+                        // VERIFICA EM QUAL ABA O BOTÃO ESTAVA PARA RECARREGAR A CERTA
+                        if (document.getElementById('v-pills-returns').contains(deleteOrderBtn)) {
+                            await loadTabContent('v-pills-returns'); // Recarrega Devoluções
+                        } else {
+                            await loadTabContent('v-pills-orders'); // Recarrega Pedidos
+                        }
+
+                    } catch (error) {
+                        alert(`Erro ao excluir: ${error.message}.`);
+                    }
+                }
             }
             
             const deleteNewsBtn = e.target.closest('.delete-news-btn');
@@ -1448,16 +1520,33 @@ function populateReturnsAccordion(requests) {
                 }
             }
 
+            // --- CORREÇÃO 2: EXCLUIR CLIENTE USANDO EDGE FUNCTION ---
             const deleteClientBtn = e.target.closest('.delete-client-btn');
             if (deleteClientBtn) {
-                if (confirm('ATENÇÃO: Ação irreversível! Deseja excluir este usuário permanentemente?')) {
+                if (confirm('ATENÇÃO: Ação irreversível! Deseja excluir este usuário e todos os seus dados permanentemente?')) {
+                    
+                    // Muda o texto do botão para dar feedback visual
+                    const originalText = deleteClientBtn.innerHTML;
+                    deleteClientBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                    deleteClientBtn.disabled = true;
+
                     try {
-                        const { error } = await supabase.auth.admin.deleteUser(deleteClientBtn.dataset.userId);
+                        // Chama a nova função segura no servidor
+                        const { data, error } = await supabase.functions.invoke('delete-user', {
+                            body: { user_id: deleteClientBtn.dataset.userId }
+                        });
+
                         if (error) throw error;
+
                         alert('Usuário excluído com sucesso.');
-                        loadTabContent('v-pills-clients');
+                        loadTabContent('v-pills-clients'); // Recarrega a lista
+
                     } catch (error) {
-                        alert(`Erro ao excluir usuário: ${error.message}. Esta ação pode exigir privilégios elevados.`);
+                        console.error(error);
+                        alert(`Erro ao excluir usuário: ${error.message || 'Erro desconhecido'}.`);
+                        // Restaura o botão em caso de erro
+                        deleteClientBtn.innerHTML = originalText;
+                        deleteClientBtn.disabled = false;
                     }
                 }
             }
@@ -1474,6 +1563,8 @@ function populateReturnsAccordion(requests) {
                 }
             }
 
+            // ... (resto dos botões: toggleAdmin, viewDetails, approveBtn, refuseBtn) ...
+            // Mantenha o restante do código igual
             const toggleAdminBtn = e.target.closest('.toggle-admin-btn');
             if (toggleAdminBtn) {
                 const currentlyAdmin = toggleAdminBtn.dataset.isAdmin === 'true';
@@ -1490,7 +1581,6 @@ function populateReturnsAccordion(requests) {
                 const ordersContainer = document.getElementById(`pedidos-cliente-${userId}`);
                 const interactionsContainer = document.getElementById(`interacoes-cliente-${userId}`);
                 
-                // Carrega os dados apenas se os contêineres estiverem vazios (para não recarregar toda vez)
                 if (ordersContainer && ordersContainer.innerHTML === '') {
                     renderClientOrders(userId, ordersContainer);
                 }
@@ -1511,16 +1601,11 @@ function populateReturnsAccordion(requests) {
             const refuseBtn = e.target.closest('.refuse-request-btn');
             if (refuseBtn) {
                 const refusalForm = document.getElementById('refusal-form');
-                refusalForm.reset(); // Limpa o formulário do modal
-                
-                // Configura o modal para a recusa da solicitação
+                refusalForm.reset(); 
                 document.getElementById('refusal-order-id').value = refuseBtn.dataset.requestId;
-                // Usamos o campo 'customer-email' para guardar o tipo ('cancelamento' ou 'devolução')
                 document.getElementById('refusal-customer-email').value = refuseBtn.dataset.type;
-                
                 document.querySelector('#refusalModal .modal-title').textContent = `Motivo da Recusa - ${refuseBtn.dataset.type}`;
                 document.querySelector('#refusalModal label').textContent = `Por favor, descreva o motivo para recusar esta solicitação de ${refuseBtn.dataset.type}:`;
-                
                 refusalModal.show();
             }
         });

@@ -69,7 +69,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script type="module">
-        import { supabase } from './js/supabase-client.js';
+        import { supabase, getTeamEmails } from './js/supabase-client.js';
 
         const orcamentoForm = document.getElementById('orcamento-form');
         const servicoImagem = document.getElementById('servico-imagem');
@@ -138,6 +138,20 @@
                 const { error } = await supabase.from('interacoes').insert([dadosOrcamento]);
                 if (error) throw error;
                 
+                // --- NOTIFICAR ADMINS (BYTECORE SERVICES) ---
+                const adminEmails = await getTeamEmails('ByteCore Services');
+                for (const email of adminEmails) {
+                    await supabase.functions.invoke('send-email', {
+                    body: {
+                        type: 'ADMIN_NOVO_ORCAMENTO',
+                        targetTeam: 'ByteCore Services', // Define a equipe fixa
+                        customerName: dadosOrcamento.nome,
+                        serviceType: dadosOrcamento.servico_nome,
+                        messageContent: dadosOrcamento.mensagem
+                    }
+                });
+            }
+
                 window.location.href = 'orcamento-enviado.html';
 
             } catch (error) {

@@ -165,7 +165,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module">
-        import { supabase } from './js/supabase-client.js';
+        // Importação da função getTeamEmails para buscar os admins da loja
+        import { supabase, getTeamEmails } from './js/supabase-client.js';
 
         const listaPedidosContainer = document.getElementById("lista-pedidos");
         const listaInteracoesContainer = document.getElementById("lista-interacoes");
@@ -178,15 +179,20 @@
 
         let currentPedidoId = null;
         let currentRequestType = ''; // 'cancelar' ou 'devolver'
+        let currentUserEmail = ''; 
+        let currentUserName = ''; 
 
         function criarCardPedido(pedido, reviewedProductIds) {
             const dataFormatada = new Date(pedido.criado_em).toLocaleDateString('pt-BR');
             const valorTotal = parseFloat(pedido.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             
             const statusMap = {
-                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' }, 'Aceito': { bg: 'bg-info text-dark', text: 'Aceito' },
-                'Enviado': { bg: 'bg-primary', text: 'Enviado' }, 'Entregue': { bg: 'bg-success', text: 'Entregue' },
-                'Recusado': { bg: 'bg-danger', text: 'Recusado' }, 'Devolução': { bg: 'bg-secondary', text: 'Devolução' },
+                'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' }, 
+                'Aceito': { bg: 'bg-info text-dark', text: 'Aceito' },
+                'Enviado': { bg: 'bg-primary', text: 'Enviado' }, 
+                'Entregue': { bg: 'bg-success', text: 'Entregue' },
+                'Recusado': { bg: 'bg-danger', text: 'Recusado' }, 
+                'Devolução': { bg: 'bg-secondary', text: 'Devolução' },
                 'Cancelamento Solicitado': { bg: 'bg-warning text-dark', text: 'Cancelamento Solicitado' },
                 'Cancelado': { bg: 'bg-danger', text: 'Cancelado' },
                 'Devolução Solicitada': { bg: 'bg-warning text-dark', text: 'Devolução Solicitada' },
@@ -195,7 +201,6 @@
             };
             const statusInfo = statusMap[pedido.status] || { bg: 'bg-secondary', text: pedido.status };
 
-            // Lógica dos botões de ação
             let acoesPedidoHtml = '';
             const statusesCancelaveis = ['Pendente', 'Aceito'];
 
@@ -267,8 +272,10 @@
              const servico = interacao.servico_nome ? `(${interacao.servico_nome})` : '';
 
              const statusMap = {
-                 'Novo': { bg: 'bg-light text-dark', text: 'Novo' }, 'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
-                 'Em Processo': { bg: 'bg-info text-dark', text: 'Em Processo' }, 'Concluída': { bg: 'bg-success', text: 'Concluída' },
+                 'Novo': { bg: 'bg-light text-dark', text: 'Novo' }, 
+                 'Pendente': { bg: 'bg-warning text-dark', text: 'Pendente' },
+                 'Em Processo': { bg: 'bg-info text-dark', text: 'Em Processo' }, 
+                 'Concluída': { bg: 'bg-success', text: 'Concluída' },
                  'Cancelada': { bg: 'bg-danger', text: 'Cancelada' }
              };
              const statusInfo = statusMap[interacao.status] || { bg: 'bg-light text-dark', text: 'Novo' };
@@ -297,6 +304,9 @@
                 return;
             }
 
+            currentUserEmail = session.user.email;
+            currentUserName = session.user.user_metadata?.nome_completo || 'Cliente';
+
             try {
                 const { data: userReviews, error: reviewError } = await supabase
                     .from('avaliacoes')
@@ -308,14 +318,7 @@
 
                 const { data: pedidos, error } = await supabase
                     .from('pedidos')
-                    .select(`
-                        *,
-                        itens_pedido (
-                            quantidade,
-                            valor_unitario,
-                            produtos (id, name)
-                        )
-                    `)
+                    .select(`*, itens_pedido (quantidade, valor_unitario, produtos (id, name))`)
                     .eq('user_id', session.user.id)
                     .order('criado_em', { ascending: false });
                 
@@ -406,7 +409,7 @@
                 <hr>
                 <h5>Como Embalar o Produto:</h5>
                 <ul>
-                    <li>Utilize la embalagem original do produto.</li>
+                    <li>Utilize a embalagem original do produto.</li>
                     <li>Acondicione o item em uma caixa de papelão resistente para protegê-lo durante o transporte.</li>
                     <li>Certifique-se de que todos os acessórios, manuais e a nota fiscal (DANFE) estejam dentro da caixa.</li>
                     <li>Lacre bem a caixa com fita adesiva.</li>
@@ -438,10 +441,32 @@
                         .eq('id', currentPedidoId);
 
                     if (error) throw error;
+                    
+                    // 1. Notifica o Cliente
+                    await supabase.functions.invoke('send-email', {
+                        body: {
+                            type: 'SOLICITACAO_RECEBIDA',
+                            to: currentUserEmail,
+                            orderId: currentPedidoId,
+                            customerName: currentUserName,
+                            serviceType: 'Cancelamento'
+                        }
+                    });
+
+                    // 2. Notifica Equipe SHOP (Solicitação de Cancelamento)
+                    await supabase.functions.invoke('send-email', {
+                        body: {
+                            type: 'ADMIN_SOLICITACAO_CLIENTE',
+                            targetTeam: 'ByteCore Shop',
+                            orderId: currentPedidoId,
+                            customerName: currentUserName,
+                            serviceType: 'Cancelamento'
+                        }
+                    });
 
                     alert('Sua solicitação de cancelamento foi enviada com sucesso!');
                     requestModal.hide();
-                    await carregarDados(); // Recarrega a lista de pedidos
+                    await carregarDados();
 
                 } catch (error) {
                     alert(`Erro ao enviar solicitação: ${error.message}`);
@@ -466,6 +491,28 @@
                     .eq('id', currentPedidoId);
                 
                 if (error) throw error;
+
+                // 1. Notifica o Cliente
+                await supabase.functions.invoke('send-email', {
+                    body: {
+                        type: 'SOLICITACAO_RECEBIDA',
+                        to: currentUserEmail,
+                        orderId: currentPedidoId,
+                        customerName: currentUserName,
+                        serviceType: currentRequestType === 'cancelar' ? 'Cancelamento' : 'Devolução'
+                    }
+                });
+
+                // 2. Notifica Equipe SHOP
+                await supabase.functions.invoke('send-email', {
+                    body: {
+                        type: 'ADMIN_SOLICITACAO_CLIENTE',
+                        targetTeam: 'ByteCore Shop',
+                        orderId: currentPedidoId,
+                        customerName: currentUserName,
+                        serviceType: currentRequestType === 'cancelar' ? 'Cancelamento' : 'Devolução'
+                    }
+                });
 
                 alert('Sua solicitação foi enviada com sucesso! Acompanhe o status por esta página.');
                 shippingInstructionsModal.hide();
